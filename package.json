@@ -1,6 +1,6 @@
 {
   "name": "tml-engine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Template Markup Language — Vue SFC-inspired, server-side template engine with component system",
   "type": "module",
   "main": "src/index.ts",
@@ -23,6 +23,11 @@
   "license": "MIT",
   "peerDependencies": {
     "express": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

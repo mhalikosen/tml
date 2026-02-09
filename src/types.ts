@@ -1,45 +1,47 @@
 export interface ParsedComponent {
-  template: string;
-  style: string;
-  script: string;
+	template: string;
+	style: string;
+	script: string;
 }
 
 export interface RenderCollector {
-  styles: Map<string, string>;
-  scripts: Map<string, string>;
+	styles: Map<string, string>;
+	scripts: Map<string, string>;
 }
 
 export interface RenderResult {
-  html: string;
-  collector: RenderCollector;
+	html: string;
+	collector: RenderCollector;
 }
 
-export interface TmlEngineOptions {
-  viewsDir: string;
-  cache?: boolean;
-  onAssets?: (collector: RenderCollector) => AssetTags;
+export interface TmlEngineConfig {
+	viewsDir: string;
+	cache?: boolean;
 }
+
+/** @deprecated Use TmlEngineConfig instead */
+export type TmlEngineOptions = TmlEngineConfig;
 
 export interface AssetTags {
-  cssTag: string;
-  jsTag: string;
+	cssTag: string;
+	jsTag: string;
 }
 
 export type CompiledTemplate = (
-  data: Record<string, unknown>,
-  escape: (value: unknown) => string,
-  include: (
-    path: string,
-    data: Record<string, unknown>,
-    context: Record<string, unknown>,
-  ) => string,
-  component: (
-    path: string,
-    data: Record<string, unknown>,
-    context: Record<string, unknown>,
-    childrenFn: () => string,
-  ) => string,
-  context: Record<string, unknown>,
+	data: Record<string, unknown>,
+	escape: (value: unknown) => string,
+	include: (
+		path: string,
+		data: Record<string, unknown>,
+		context: Record<string, unknown>,
+	) => string,
+	component: (
+		path: string,
+		data: Record<string, unknown>,
+		context: Record<string, unknown>,
+		childrenFn: () => string,
+	) => string,
+	context: Record<string, unknown>,
 ) => string;
 
 export type TemplateCache = Map<string, CompiledTemplate>;
