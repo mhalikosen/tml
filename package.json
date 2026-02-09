@@ -3,12 +3,22 @@
   "version": "0.2.0",
   "description": "Template Markup Language — Vue SFC-inspired, server-side template engine with component system",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./express": "./src/express.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./express": {
+      "types": "./dist/express.d.ts",
+      "default": "./dist/express.js"
+    }
   },
+  "files": ["dist"],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
     "dev": "node --watch example/app.ts",
     "example": "node example/app.ts",
     "check": "npx biome check --write src/"
@@ -32,6 +42,7 @@
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
-    "express": "^5.0.0"
+    "express": "^5.0.0",
+    "typescript": "^5.9.3"
   }
 }
