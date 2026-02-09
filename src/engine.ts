@@ -56,6 +56,7 @@ export class TmlEngine {
 		const collector: RenderCollector = {
 			styles: new Map(),
 			scripts: new Map(),
+			headTags: new Map(),
 		};
 
 		const html = this.renderComponent(pagePath, data, context, collector);
@@ -140,6 +141,13 @@ export class TmlEngine {
 			);
 		};
 
+		const headHandler = (fn: () => string): void => {
+			const result = fn();
+			if (result) {
+				collector.headTags.set(componentPath, result);
+			}
+		};
+
 		try {
 			return compiled(
 				dataWithChildren,
@@ -147,6 +155,7 @@ export class TmlEngine {
 				includeHandler,
 				componentHandler,
 				context,
+				headHandler,
 			);
 		} catch (error) {
 			if (error instanceof TmlCompileError || error instanceof TmlRenderError) {
@@ -293,8 +302,13 @@ export class TmlEngine {
 }
 
 export function buildInlineAssets(collector: RenderCollector): AssetTags {
+	let headTag = "";
 	let cssTag = "";
 	let jsTag = "";
+
+	if (collector.headTags.size > 0) {
+		headTag = Array.from(collector.headTags.values()).join("\n");
+	}
 
 	if (collector.styles.size > 0) {
 		const allCss = Array.from(collector.styles.values()).join("\n\n");
@@ -306,16 +320,23 @@ export function buildInlineAssets(collector: RenderCollector): AssetTags {
 		jsTag = `<script>\n${allJs}\n</script>`;
 	}
 
-	return { cssTag, jsTag };
+	return { headTag, cssTag, jsTag };
 }
 
 export function injectAssets(html: string, assets: AssetTags): string {
 	let result = html;
 
-	if (assets.cssTag) {
-		const headCloseIndex = result.indexOf("</head>");
-		if (headCloseIndex !== -1) {
-			result = `${result.slice(0, headCloseIndex)}${assets.cssTag}\n${result.slice(headCloseIndex)}`;
+	const headCloseIndex = result.indexOf("</head>");
+	if (headCloseIndex !== -1) {
+		let headInsert = "";
+		if (assets.headTag) {
+			headInsert += `${assets.headTag}\n`;
+		}
+		if (assets.cssTag) {
+			headInsert += `${assets.cssTag}\n`;
+		}
+		if (headInsert) {
+			result = `${result.slice(0, headCloseIndex)}${headInsert}${result.slice(headCloseIndex)}`;
 		}
 	}
 

@@ -7,6 +7,7 @@ export interface ParsedComponent {
 export interface RenderCollector {
 	styles: Map<string, string>;
 	scripts: Map<string, string>;
+	headTags: Map<string, string>;
 }
 
 export interface RenderResult {
@@ -23,6 +24,7 @@ export interface TmlEngineConfig {
 export type TmlEngineOptions = TmlEngineConfig;
 
 export interface AssetTags {
+	headTag: string;
 	cssTag: string;
 	jsTag: string;
 }
@@ -42,6 +44,7 @@ export type CompiledTemplate = (
 		childrenFn: () => string,
 	) => string,
 	context: Record<string, unknown>,
+	head: (fn: () => string) => void,
 ) => string;
 
 export type TemplateCache = Map<string, CompiledTemplate>;

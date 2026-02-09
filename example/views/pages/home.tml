@@ -1,4 +1,8 @@
 <template>
+  @head
+    <title>{{ title }} | TML Demo</title>
+    <meta name="description" content="TML template engine demo sayfasi">
+  @end
   @provide(theme, { primary: "#3040d0" })
   @component(layouts/main)
     <main class="home-page">

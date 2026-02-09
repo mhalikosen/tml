@@ -24,7 +24,7 @@ export class TmlRenderError extends Error {
 	}
 }
 
-type BlockType = "if" | "each" | "component";
+type BlockType = "if" | "each" | "component" | "head";
 
 const DIRECTIVE_IF = /^@if\((.+)\)$/;
 const DIRECTIVE_ELSEIF = /^@elseif\((.+)\)$/;
@@ -35,6 +35,7 @@ const DIRECTIVE_INCLUDE = /^@include\(([^,)]+)(?:\s*,\s*(\{.*\}))?\)$/;
 const DIRECTIVE_COMPONENT = /^@component\(([^,)]+)(?:\s*,\s*(\{.*\}))?\)$/;
 const DIRECTIVE_CHILDREN = /^@children$/;
 const DIRECTIVE_PROVIDE = /^@provide\((\w+)\s*,\s*(.+)\)$/;
+const DIRECTIVE_HEAD = /^@head$/;
 const INLINE_JS = /^<%(.+)%>$/;
 
 const EXPR_RAW = /\{\{\{([\s\S]+?)\}\}\}/g;
@@ -190,6 +191,8 @@ export function compile(template: string, filePath: string): CompiledTemplate {
 				codeParts.push(`/* line ${lineNum} */ $index++; } }`);
 			} else if (block === "component") {
 				codeParts.push(`/* line ${lineNum} */ return __out; });`);
+			} else if (block === "head") {
+				codeParts.push(`/* line ${lineNum} */ return __out; });`);
 			} else {
 				codeParts.push(`/* line ${lineNum} */ }`);
 			}
@@ -245,6 +248,14 @@ export function compile(template: string, filePath: string): CompiledTemplate {
 			continue;
 		}
 
+		if (DIRECTIVE_HEAD.test(trimmed)) {
+			codeParts.push(
+				`/* line ${lineNum} */ __head(function() { var __out = '';`,
+			);
+			blockStack.push("head");
+			continue;
+		}
+
 		match = trimmed.match(DIRECTIVE_PROVIDE);
 		if (match) {
 			const key = match[1];
@@ -291,6 +302,7 @@ export function compile(template: string, filePath: string): CompiledTemplate {
 			"__include",
 			"__component",
 			"__context",
+			"__head",
 			wrappedBody,
 		) as CompiledTemplate;
 		return fn;
