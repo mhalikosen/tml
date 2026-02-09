@@ -5,7 +5,7 @@ export class TmlCompileError extends Error {
 	line: number;
 
 	constructor(message: string, filePath: string, line: number) {
-		super(`TmlCompileError: ${message} at ${filePath}:${line}`);
+		super(`${message} at ${filePath}:${line}`);
 		this.name = "TmlCompileError";
 		this.filePath = filePath;
 		this.line = line;
@@ -17,7 +17,7 @@ export class TmlRenderError extends Error {
 	line: number;
 
 	constructor(message: string, filePath: string, line: number) {
-		super(`TmlRenderError: ${message} at ${filePath}:${line}`);
+		super(`${message} at ${filePath}:${line}`);
 		this.name = "TmlRenderError";
 		this.filePath = filePath;
 		this.line = line;
@@ -189,9 +189,7 @@ export function compile(template: string, filePath: string): CompiledTemplate {
 			}
 			if (block === "each") {
 				codeParts.push(`/* line ${lineNum} */ $index++; } }`);
-			} else if (block === "component") {
-				codeParts.push(`/* line ${lineNum} */ return __out; });`);
-			} else if (block === "head") {
+			} else if (block === "component" || block === "head") {
 				codeParts.push(`/* line ${lineNum} */ return __out; });`);
 			} else {
 				codeParts.push(`/* line ${lineNum} */ }`);

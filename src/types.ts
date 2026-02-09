@@ -20,7 +20,6 @@ export interface TmlEngineConfig {
 	cache?: boolean;
 }
 
-
 export interface AssetTags {
 	headTag: string;
 	cssTag: string;

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { buildInlineAssets, injectAssets, TmlEngine } from "./engine.ts";
+import { extractRenderData } from "./helpers.ts";
 import type { AssetTags, RenderCollector } from "./types.ts";
 
 type ExpressViewEngine = (
@@ -29,14 +30,7 @@ export function createViewEngine(
 		callback: (err: Error | null, rendered?: string) => void,
 	) => {
 		try {
-			const relativePath = path
-				.relative(viewsDir, filePath)
-				.replace(/\.tml$/, "");
-
-			const { settings: _settings, _locals, cache: _cache, ...data } = options;
-
-			const context = (data.$context as Record<string, unknown>) || {};
-			delete data.$context;
+			const { relativePath, data, context } = extractRenderData(viewsDir, filePath, options);
 
 			const { html, collector } = engine.renderPage(
 				relativePath,

@@ -22,6 +22,18 @@ export function escapeHtml(value: unknown): string {
 	);
 }
 
+export function extractRenderData(
+	viewsDir: string,
+	filePath: string,
+	options: Record<string, unknown>,
+): { relativePath: string; data: Record<string, unknown>; context: Record<string, unknown> } {
+	const relativePath = path.relative(viewsDir, filePath).replace(/\.tml$/, "");
+	const { settings: _settings, _locals, cache: _cache, ...data } = options;
+	const context = (data.$context as Record<string, unknown>) || {};
+	delete data.$context;
+	return { relativePath, data, context };
+}
+
 export function safePath(baseDir: string, name: string): string {
 	const resolved = path.resolve(baseDir, `${name}.tml`);
 	const normalizedBase = path.resolve(baseDir);

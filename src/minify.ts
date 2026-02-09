@@ -1,11 +1,11 @@
-export const wrapInIIFE = (jsCode: string): string => {
+export function wrapInIIFE(jsCode: string): string {
 	if (!jsCode.trim()) {
 		return "";
 	}
 	return `(function(){${jsCode}})();`;
-};
+}
 
-export const minifyCSS = (css: string): string => {
+export function minifyCSS(css: string): string {
 	let result = css;
 
 	// Remove /* ... */ comments
@@ -21,9 +21,9 @@ export const minifyCSS = (css: string): string => {
 	result = result.replace(/;}/g, "}");
 
 	return result.trim();
-};
+}
 
-export const minifyJS = (js: string): string => {
+export function minifyJS(js: string): string {
 	let result = js;
 
 	// Trim trailing whitespace on each line
@@ -33,4 +33,4 @@ export const minifyJS = (js: string): string => {
 	result = result.replace(/\n{3,}/g, "\n\n");
 
 	return result.trim();
-};
+}

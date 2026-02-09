@@ -2,8 +2,7 @@ import * as esbuild from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import { compile, TmlCompileError, TmlRenderError } from "./compiler.ts";
-import { escapeHtml, safePath } from "./helpers.ts";
-
+import { escapeHtml, extractRenderData, safePath } from "./helpers.ts";
 import { parse } from "./parser.ts";
 import type {
 	AssetTags,
@@ -74,14 +73,7 @@ export class TmlEngine {
 		try {
 			this.ensureInitialized(filePath, options);
 
-			const relativePath = path
-				.relative(this.viewsDir, filePath)
-				.replace(/\.tml$/, "");
-
-			const { settings: _settings, _locals, cache: _cache, ...data } = options;
-
-			const context = (data.$context as Record<string, unknown>) || {};
-			delete data.$context;
+			const { relativePath, data, context } = extractRenderData(this.viewsDir, filePath, options);
 
 			const { html, collector } = this.renderPage(relativePath, data, context);
 
@@ -240,20 +232,23 @@ export class TmlEngine {
 					.relative(this.viewsDir, fullPath)
 					.replace(/\.tml$/, "");
 
-				this.parsedCache.set(relativePath, parsed);
-
-				if (parsed.style) {
-					this.cssRegistry.set(relativePath, parsed.style);
-				}
-				if (parsed.script) {
-					this.jsRegistry.set(relativePath, parsed.script);
-				}
+				this.registerParsed(relativePath, parsed);
 
 				if (this.cacheEnabled) {
 					const compiled = compile(parsed.template, relativePath);
 					this.templateCache.set(relativePath, compiled);
 				}
 			}
+		}
+	}
+
+	private registerParsed(componentPath: string, parsed: ParsedComponent): void {
+		this.parsedCache.set(componentPath, parsed);
+		if (parsed.style) {
+			this.cssRegistry.set(componentPath, parsed.style);
+		}
+		if (parsed.script) {
+			this.jsRegistry.set(componentPath, parsed.script);
 		}
 	}
 
@@ -272,14 +267,7 @@ export class TmlEngine {
 
 		const source = fs.readFileSync(fullPath, "utf-8");
 		const parsed = parse(source);
-		this.parsedCache.set(componentPath, parsed);
-
-		if (parsed.style) {
-			this.cssRegistry.set(componentPath, parsed.style);
-		}
-		if (parsed.script) {
-			this.jsRegistry.set(componentPath, parsed.script);
-		}
+		this.registerParsed(componentPath, parsed);
 
 		return parsed;
 	}
