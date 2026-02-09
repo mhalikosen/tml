@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { compile, TmlCompileError, TmlRenderError } from "./compiler.ts";
 import { escapeHtml, safePath } from "./helpers.ts";
-import { minifyCSS } from "./minify.ts";
+
 import { parse } from "./parser.ts";
 import type {
 	AssetTags,
@@ -315,10 +315,9 @@ export async function buildInlineAssets(
 	}
 
 	if (collector.styles.size > 0) {
-		const allCss = Array.from(collector.styles.values())
-			.map((css) => minifyCSS(css))
-			.join("\n");
-		cssTag = `<style>${allCss}</style>`;
+		const allCss = Array.from(collector.styles.values()).join("\n");
+		const minified = await minifyCSSWithEsbuild(allCss);
+		cssTag = `<style>${minified}</style>`;
 	}
 
 	if (collector.scripts.size > 0) {
@@ -330,6 +329,14 @@ export async function buildInlineAssets(
 	}
 
 	return { headTag, cssTag, jsTag };
+}
+
+async function minifyCSSWithEsbuild(css: string): Promise<string> {
+	const result = await esbuild.transform(css, {
+		loader: "css",
+		minify: true,
+	});
+	return result.code.trim();
 }
 
 async function bundleScript(js: string): Promise<string> {
