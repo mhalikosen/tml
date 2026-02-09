@@ -1,8 +1,9 @@
+import * as esbuild from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import { compile, TmlCompileError, TmlRenderError } from "./compiler.ts";
 import { escapeHtml, safePath } from "./helpers.ts";
-import { minifyCSS, minifyJS, wrapInIIFE } from "./minify.ts";
+import { minifyCSS } from "./minify.ts";
 import { parse } from "./parser.ts";
 import type {
 	AssetTags,
@@ -65,11 +66,11 @@ export class TmlEngine {
 		return { html, collector };
 	}
 
-	renderFile(
+	async renderFile(
 		filePath: string,
 		options: Record<string, unknown>,
 		callback: (err: Error | null, rendered?: string) => void,
-	): void {
+	): Promise<void> {
 		try {
 			this.ensureInitialized(filePath, options);
 
@@ -84,7 +85,7 @@ export class TmlEngine {
 
 			const { html, collector } = this.renderPage(relativePath, data, context);
 
-			const inlineAssets = buildInlineAssets(collector);
+			const inlineAssets = await buildInlineAssets(collector);
 			const finalHtml = injectAssets(html, inlineAssets);
 
 			callback(null, finalHtml);
@@ -302,7 +303,9 @@ export class TmlEngine {
 	}
 }
 
-export function buildInlineAssets(collector: RenderCollector): AssetTags {
+export async function buildInlineAssets(
+	collector: RenderCollector,
+): Promise<AssetTags> {
 	let headTag = "";
 	let cssTag = "";
 	let jsTag = "";
@@ -319,13 +322,26 @@ export function buildInlineAssets(collector: RenderCollector): AssetTags {
 	}
 
 	if (collector.scripts.size > 0) {
-		const allJs = Array.from(collector.scripts.values())
-			.map((js) => wrapInIIFE(minifyJS(js)))
-			.join("\n");
+		const bundled = await Promise.all(
+			Array.from(collector.scripts.values()).map((js) => bundleScript(js)),
+		);
+		const allJs = bundled.join("\n");
 		jsTag = `<script>${allJs}</script>`;
 	}
 
 	return { headTag, cssTag, jsTag };
+}
+
+async function bundleScript(js: string): Promise<string> {
+	const result = await esbuild.build({
+		stdin: { contents: js, resolveDir: process.cwd(), loader: "js" },
+		bundle: true,
+		write: false,
+		format: "iife",
+		minify: true,
+		platform: "browser",
+	});
+	return result.outputFiles[0].text.trim();
 }
 
 export function injectAssets(html: string, assets: AssetTags): string {

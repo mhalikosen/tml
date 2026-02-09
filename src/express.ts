@@ -23,7 +23,7 @@ export function createViewEngine(
 
 	const engine = new TmlEngine({ viewsDir, cache: shouldCache });
 
-	return (
+	return async (
 		filePath: string,
 		options: Record<string, unknown>,
 		callback: (err: Error | null, rendered?: string) => void,
@@ -50,7 +50,7 @@ export function createViewEngine(
 				const assetTags = engineOptions.onAssets(collector);
 				finalHtml = injectAssets(finalHtml, assetTags);
 			} else {
-				const inlineAssets = buildInlineAssets(collector);
+				const inlineAssets = await buildInlineAssets(collector);
 				finalHtml = injectAssets(finalHtml, inlineAssets);
 			}
 
