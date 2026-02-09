@@ -10,7 +10,6 @@ export type {
 	RenderResult,
 	TemplateCache,
 	TmlEngineConfig,
-	TmlEngineOptions,
 } from "./types.ts";
 
 // Default singleton
@@ -30,6 +29,3 @@ export const getAllJS = defaultEngine.getAllJS.bind(defaultEngine);
 
 // Express auto-discovery convention
 export const __express = renderFile;
-
-/** @deprecated Use configure() instead */
-export const initRegistry = configure;

@@ -20,8 +20,6 @@ export interface TmlEngineConfig {
 	cache?: boolean;
 }
 
-/** @deprecated Use TmlEngineConfig instead */
-export type TmlEngineOptions = TmlEngineConfig;
 
 export interface AssetTags {
 	headTag: string;
