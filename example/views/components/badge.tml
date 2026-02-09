@@ -1,0 +1,7 @@
+<template>
+  <span class="badge">{{ text }}</span>
+</template>
+
+<style>
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; background: #3040d0; color: #fff; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+</style>

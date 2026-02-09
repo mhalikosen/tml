@@ -1,0 +1,53 @@
+<template>
+  @provide(theme, { primary: "#3040d0" })
+  @component(layouts/main)
+    <main class="home-page">
+      @include(components/hero, { heading: title, subtitle: "Vue SFC ilhamli, server-side template engine" })
+
+      <section class="features">
+        <h2>Ozellikler</h2>
+        <div class="feature-grid">
+          @each(feature of features)
+            @component(components/card, { title: feature.name })
+              <p>{{ feature.description }}</p>
+              @if(feature.isNew)
+                @include(components/badge, { text: "Yeni" })
+              @end
+            @end
+          @end
+        </div>
+      </section>
+
+      <section class="demo-section">
+        <h2>Context Sistemi</h2>
+        <p>Tema rengi: <strong style="color: {{ $context.theme.primary }}">{{ $context.theme.primary }}</strong></p>
+      </section>
+
+      @if(user)
+        <section class="user-section">
+          <h2>Hosgeldin, {{ user.name }}!</h2>
+          <p>Rol: {{ user.role }}</p>
+        </section>
+      @else
+        <section class="user-section">
+          <p>Giris yapmadin.</p>
+        </section>
+      @end
+
+      <section class="demo-section">
+        <h2>XSS Korumasi</h2>
+        <p>Escaped: {{ xssTest }}</p>
+        <p>Raw: {{{ safeHtml }}}</p>
+      </section>
+    </main>
+  @end
+</template>
+
+<style>
+  .home-page { max-width: 1200px; margin: 0 auto; }
+  .features { padding: 3rem 2rem; }
+  .features h2 { margin-bottom: 1.5rem; }
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+  .demo-section { padding: 2rem; border-top: 1px solid #eee; }
+  .user-section { padding: 2rem; border-top: 1px solid #eee; }
+</style>

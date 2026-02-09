@@ -1,0 +1,20 @@
+<template>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="logo">TML Demo</a>
+      <nav>
+        <a href="/">Ana Sayfa</a>
+        <a href="/about">Hakkinda</a>
+      </nav>
+    </div>
+  </header>
+</template>
+
+<style>
+  .site-header { background: #1a1a2e; color: #fff; padding: 1rem 2rem; }
+  .header-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+  .logo { color: #fff; font-weight: 700; font-size: 1.25rem; }
+  .site-header nav { display: flex; gap: 1.5rem; }
+  .site-header nav a { color: rgba(255,255,255,0.8); }
+  .site-header nav a:hover { color: #fff; text-decoration: none; }
+</style>
