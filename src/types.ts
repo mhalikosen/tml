@@ -28,10 +28,15 @@ export interface AssetTags {
 export type CompiledTemplate = (
   data: Record<string, unknown>,
   escape: (value: unknown) => string,
-  include: (path: string, data: Record<string, unknown>) => string,
+  include: (
+    path: string,
+    data: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ) => string,
   component: (
     path: string,
     data: Record<string, unknown>,
+    context: Record<string, unknown>,
     childrenFn: () => string,
   ) => string,
   context: Record<string, unknown>,

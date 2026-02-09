@@ -197,11 +197,11 @@ export function compile(template: string, filePath: string): CompiledTemplate {
       const propsExpr = match[2] ? match[2].trim() : null;
       if (propsExpr) {
         codeParts.push(
-          `/* line ${lineNum} */ __out += __include('${includePath}', Object.assign({}, __data, ${propsExpr}));`,
+          `/* line ${lineNum} */ __out += __include('${includePath}', Object.assign({}, __data, ${propsExpr}), __context);`,
         );
       } else {
         codeParts.push(
-          `/* line ${lineNum} */ __out += __include('${includePath}', __data);`,
+          `/* line ${lineNum} */ __out += __include('${includePath}', __data, __context);`,
         );
       }
       continue;
@@ -213,11 +213,11 @@ export function compile(template: string, filePath: string): CompiledTemplate {
       const propsExpr = match[2] ? match[2].trim() : null;
       if (propsExpr) {
         codeParts.push(
-          `/* line ${lineNum} */ __out += __component('${componentPath}', Object.assign({}, __data, ${propsExpr}), function() { var __out = '';`,
+          `/* line ${lineNum} */ __out += __component('${componentPath}', Object.assign({}, __data, ${propsExpr}), __context, function() { var __out = '';`,
         );
       } else {
         codeParts.push(
-          `/* line ${lineNum} */ __out += __component('${componentPath}', __data, function() { var __out = '';`,
+          `/* line ${lineNum} */ __out += __component('${componentPath}', __data, __context, function() { var __out = '';`,
         );
       }
       blockStack.push("component");

@@ -149,17 +149,22 @@ export function renderComponent(
     ? { ...data, $children: children }
     : { ...data };
 
-  const includeHandler = (includePath: string, includeData: Record<string, unknown>): string => {
-    return renderComponent(includePath, includeData, context, collector);
+  const includeHandler = (
+    includePath: string,
+    includeData: Record<string, unknown>,
+    includeContext: Record<string, unknown>,
+  ): string => {
+    return renderComponent(includePath, includeData, includeContext, collector);
   };
 
   const componentHandler = (
     compPath: string,
     compData: Record<string, unknown>,
+    compContext: Record<string, unknown>,
     childrenFn: () => string,
   ): string => {
     const childrenHtml = childrenFn();
-    return renderComponent(compPath, compData, context, collector, childrenHtml);
+    return renderComponent(compPath, compData, compContext, collector, childrenHtml);
   };
 
   try {
