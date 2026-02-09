@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { compile, TmlCompileError, TmlRenderError } from "./compiler.ts";
 import { escapeHtml, safePath } from "./helpers.ts";
+import { minifyCSS, minifyJS, wrapInIIFE } from "./minify.ts";
 import { parse } from "./parser.ts";
 import type {
 	AssetTags,
@@ -311,13 +312,17 @@ export function buildInlineAssets(collector: RenderCollector): AssetTags {
 	}
 
 	if (collector.styles.size > 0) {
-		const allCss = Array.from(collector.styles.values()).join("\n\n");
-		cssTag = `<style>\n${allCss}\n</style>`;
+		const allCss = Array.from(collector.styles.values())
+			.map((css) => minifyCSS(css))
+			.join("\n");
+		cssTag = `<style>${allCss}</style>`;
 	}
 
 	if (collector.scripts.size > 0) {
-		const allJs = Array.from(collector.scripts.values()).join("\n\n");
-		jsTag = `<script>\n${allJs}\n</script>`;
+		const allJs = Array.from(collector.scripts.values())
+			.map((js) => wrapInIIFE(minifyJS(js)))
+			.join("\n");
+		jsTag = `<script>${allJs}</script>`;
 	}
 
 	return { headTag, cssTag, jsTag };

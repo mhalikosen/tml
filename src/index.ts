@@ -2,6 +2,7 @@ import { TmlEngine } from "./engine.ts";
 
 export { TmlCompileError, TmlRenderError } from "./compiler.ts";
 export { buildInlineAssets, injectAssets, TmlEngine } from "./engine.ts";
+export { minifyCSS, minifyJS, wrapInIIFE } from "./minify.ts";
 export type {
 	AssetTags,
 	CompiledTemplate,
