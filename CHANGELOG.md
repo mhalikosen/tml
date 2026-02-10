@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-02-10
+
+### Fixed
+
+- `escapeJsString` now escapes null byte, `\u2028`, and `\u2029` characters
+- `findClosingParen` supports backtick template literals with `${...}` interpolation
+- `configure()` throws descriptive error when viewsDir does not exist
+- `scanDirectory` detects symlink loops via real path tracking
+- Asset build cache limited to 100 entries with FIFO eviction
+- Asset cache key uses `JSON.stringify` to prevent collisions from ambiguous separators
+
+### Added
+
+- Test coverage for Express adapter (`createViewEngine`), `renderFile`, `cache: true`, and esbuild error handling
+
 ## [0.3.0] - 2026-02-10
 
 ### Added
