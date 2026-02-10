@@ -41,58 +41,180 @@ const INLINE_JS = /^<%(.+)%>$/;
 const EXPR_RAW = /\{\{\{([\s\S]+?)\}\}\}/g;
 const EXPR_ESCAPED = /\{\{([\s\S]+?)\}\}/g;
 
-interface TextSegment {
-	type: "text" | "escaped" | "raw";
-	value: string;
+type Segment =
+	| { type: "text"; value: string }
+	| { type: "escaped"; value: string }
+	| { type: "raw"; value: string }
+	| { type: "include"; path: string; props: string | null }
+	| { type: "children" };
+
+function findClosingParen(str: string, start: number): number {
+	let parenDepth = 1;
+	let braceDepth = 0;
+	let inString: string | null = null;
+
+	for (let i = start; i < str.length; i++) {
+		const ch = str[i];
+
+		if (inString !== null) {
+			if (ch === "\\" && i + 1 < str.length) {
+				i++;
+				continue;
+			}
+			if (ch === inString) {
+				inString = null;
+			}
+			continue;
+		}
+
+		if (ch === '"' || ch === "'") {
+			inString = ch;
+		} else if (ch === "(") {
+			parenDepth++;
+		} else if (ch === ")") {
+			parenDepth--;
+			if (parenDepth === 0) {
+				return i;
+			}
+		} else if (ch === "{") {
+			braceDepth++;
+		} else if (ch === "}") {
+			braceDepth--;
+		}
+	}
+
+	return -1;
 }
 
-function parseInterpolations(text: string): TextSegment[] {
-	const segments: TextSegment[] = [];
+function parseIncludeArgs(content: string): {
+	path: string;
+	props: string | null;
+} {
+	const commaIndex = content.indexOf(",");
+	if (commaIndex === -1) {
+		return { path: content.trim(), props: null };
+	}
+	return {
+		path: content.slice(0, commaIndex).trim(),
+		props: content.slice(commaIndex + 1).trim(),
+	};
+}
+
+const WORD_CHAR = /\w/;
+
+function parseInterpolations(text: string): Segment[] {
+	const segments: Segment[] = [];
 	let remaining = text;
 
 	while (remaining.length > 0) {
 		const rawIndex = remaining.indexOf("{{{");
 		const escapedIndex = remaining.indexOf("{{");
 
-		if (rawIndex === -1 && escapedIndex === -1) {
+		let includeIndex = -1;
+		{
+			let searchFrom = 0;
+			while (true) {
+				const idx = remaining.indexOf("@include(", searchFrom);
+				if (idx === -1) break;
+				if (idx > 0 && WORD_CHAR.test(remaining[idx - 1])) {
+					searchFrom = idx + 1;
+					continue;
+				}
+				includeIndex = idx;
+				break;
+			}
+		}
+
+		let childrenIndex = -1;
+		{
+			let searchFrom = 0;
+			while (true) {
+				const idx = remaining.indexOf("@children", searchFrom);
+				if (idx === -1) break;
+				if (idx > 0 && WORD_CHAR.test(remaining[idx - 1])) {
+					searchFrom = idx + 1;
+					continue;
+				}
+				const afterPos = idx + 9;
+				if (
+					afterPos < remaining.length &&
+					WORD_CHAR.test(remaining[afterPos])
+				) {
+					searchFrom = idx + 1;
+					continue;
+				}
+				childrenIndex = idx;
+				break;
+			}
+		}
+
+		type Candidate = { pos: number; kind: "raw" | "escaped" | "include" | "children" };
+		const candidates: Candidate[] = [];
+		if (rawIndex !== -1) candidates.push({ pos: rawIndex, kind: "raw" });
+		if (escapedIndex !== -1)
+			candidates.push({ pos: escapedIndex, kind: "escaped" });
+		if (includeIndex !== -1)
+			candidates.push({ pos: includeIndex, kind: "include" });
+		if (childrenIndex !== -1)
+			candidates.push({ pos: childrenIndex, kind: "children" });
+
+		if (candidates.length === 0) {
 			segments.push({ type: "text", value: remaining });
 			break;
 		}
 
-		const isRaw =
-			rawIndex !== -1 && (escapedIndex === -1 || rawIndex <= escapedIndex);
+		candidates.sort((a, b) => {
+			if (a.pos !== b.pos) return a.pos - b.pos;
+			if (a.kind === "raw" && b.kind === "escaped") return -1;
+			if (a.kind === "escaped" && b.kind === "raw") return 1;
+			return 0;
+		});
 
-		if (isRaw) {
-			if (rawIndex > 0) {
-				segments.push({ type: "text", value: remaining.slice(0, rawIndex) });
-			}
-			const endIndex = remaining.indexOf("}}}", rawIndex + 3);
+		const winner = candidates[0];
+
+		if (winner.pos > 0) {
+			segments.push({ type: "text", value: remaining.slice(0, winner.pos) });
+		}
+
+		if (winner.kind === "raw") {
+			const endIndex = remaining.indexOf("}}}", winner.pos + 3);
 			if (endIndex === -1) {
-				segments.push({ type: "text", value: remaining.slice(rawIndex) });
+				segments.push({ type: "text", value: remaining.slice(winner.pos) });
 				break;
 			}
 			segments.push({
 				type: "raw",
-				value: remaining.slice(rawIndex + 3, endIndex).trim(),
+				value: remaining.slice(winner.pos + 3, endIndex).trim(),
 			});
 			remaining = remaining.slice(endIndex + 3);
-		} else {
-			if (escapedIndex > 0) {
-				segments.push({
-					type: "text",
-					value: remaining.slice(0, escapedIndex),
-				});
-			}
-			const endIndex = remaining.indexOf("}}", escapedIndex + 2);
+		} else if (winner.kind === "escaped") {
+			const endIndex = remaining.indexOf("}}", winner.pos + 2);
 			if (endIndex === -1) {
-				segments.push({ type: "text", value: remaining.slice(escapedIndex) });
+				segments.push({ type: "text", value: remaining.slice(winner.pos) });
 				break;
 			}
 			segments.push({
 				type: "escaped",
-				value: remaining.slice(escapedIndex + 2, endIndex).trim(),
+				value: remaining.slice(winner.pos + 2, endIndex).trim(),
 			});
 			remaining = remaining.slice(endIndex + 2);
+		} else if (winner.kind === "include") {
+			const openParenPos = winner.pos + 8;
+			const closeParenPos = findClosingParen(
+				remaining,
+				openParenPos + 1,
+			);
+			if (closeParenPos === -1) {
+				segments.push({ type: "text", value: remaining.slice(winner.pos) });
+				break;
+			}
+			const content = remaining.slice(openParenPos + 1, closeParenPos);
+			const { path, props } = parseIncludeArgs(content);
+			segments.push({ type: "include", path, props });
+			remaining = remaining.slice(closeParenPos + 1);
+		} else {
+			segments.push({ type: "children" });
+			remaining = remaining.slice(winner.pos + 9);
 		}
 	}
 
@@ -117,6 +239,20 @@ function compileLineWithInterpolations(line: string): string {
 				break;
 			case "raw":
 				parts.push(`(${segment.value})`);
+				break;
+			case "include":
+				if (segment.props) {
+					parts.push(
+						`__include('${segment.path}', Object.assign({}, __data, ${segment.props}), __context)`,
+					);
+				} else {
+					parts.push(
+						`__include('${segment.path}', __data, __context)`,
+					);
+				}
+				break;
+			case "children":
+				parts.push(`(__children || '')`);
 				break;
 		}
 	}
