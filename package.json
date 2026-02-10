@@ -16,8 +16,11 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepare": "npm run build",
@@ -27,12 +30,22 @@
     "check": "npx biome check --write src/"
   },
   "keywords": [
-    "template",
-    "engine",
-    "server-side",
+    "template-engine",
+    "server-side-rendering",
+    "ssr",
     "components",
-    "express"
+    "express",
+    "vue-sfc",
+    "html-template"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mhalikosen/tml.git"
+  },
+  "homepage": "https://github.com/mhalikosen/tml#readme",
+  "bugs": {
+    "url": "https://github.com/mhalikosen/tml/issues"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
