@@ -1,57 +1,59 @@
 <template>
   @head
-    <title>{{ title }} | TML Demo</title>
-    <meta name="description" content="TML template engine demo sayfasi">
+    <meta name="description" content="TML engine demo">
   @end
   @provide(theme, { primary: "#3040d0" })
   @component(layouts/main)
-    <main class="home-page">
-      @include(components/hero, { heading: title, subtitle: "Vue SFC ilhamli, server-side template engine" })
+    <main>
+      <h1>{{ title }}</h1>
 
-      <section class="features">
-        <h2>Ozellikler</h2>
-        <div class="feature-grid">
-          @each(feature of features)
-            @component(components/card, { title: feature.name })
-              <p>{{ feature.description }}</p>
-              @if(feature.isNew)
-                @include(components/badge, { text: "Yeni" })
-              @end
+      <section>
+        <h2>Features</h2>
+        @each(feature of features)
+          @component(components/card, { title: feature.name })
+            <p>{{ feature.description }}</p>
+            @if(feature.isNew)
+              @include(components/badge, { text: "New" })
             @end
           @end
-        </div>
+        @end
       </section>
 
-      <section class="demo-section">
-        <h2>Context Sistemi</h2>
-        <p>Tema rengi: <strong style="color: {{ $context.theme.primary }}">{{ $context.theme.primary }}</strong></p>
+      <section>
+        <h2>Context</h2>
+        <p>Theme color: <strong style="color: {{ $context.theme.primary }}">{{ $context.theme.primary }}</strong></p>
       </section>
 
       @if(user)
-        <section class="user-section">
-          <h2>Hosgeldin, {{ user.name }}!</h2>
-          <p>Rol: {{ user.role }}</p>
+        <section>
+          <h2>Welcome, {{ user.name }}!</h2>
+          <p>Role: {{ user.role }}</p>
         </section>
       @else
-        <section class="user-section">
-          <p>Giris yapmadin.</p>
+        <section>
+          <p>Not logged in.</p>
         </section>
       @end
 
-      <section class="demo-section">
-        <h2>XSS Korumasi</h2>
+      <section>
+        <h2>XSS Protection</h2>
         <p>Escaped: {{ xssTest }}</p>
         <p>Raw: {{{ safeHtml }}}</p>
+      </section>
+
+      <section>
+        <h2>Inline JS</h2>
+        <%
+          const total = features.length;
+          const newCount = features.filter(f => f.isNew).length;
+        %>
+        <p>Total features: {{ total }}, new: {{ newCount }}</p>
       </section>
     </main>
   @end
 </template>
 
 <style>
-  .home-page { max-width: 1200px; margin: 0 auto; }
-  .features { padding: 3rem 2rem; }
-  .features h2 { margin-bottom: 1.5rem; }
-  .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
-  .demo-section { padding: 2rem; border-top: 1px solid #eee; }
-  .user-section { padding: 2rem; border-top: 1px solid #eee; }
+  main { max-width: 800px; margin: 0 auto; padding: 2rem; }
+  section { margin-bottom: 2rem; }
 </style>

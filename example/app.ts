@@ -1,64 +1,23 @@
 import path from "node:path";
-import express from "express";
-import { createViewEngine } from "../src/express.ts";
+import { TmlEngine, buildInlineAssets, injectAssets } from "../src/index.ts";
 
-const app = express();
 const viewsDir = path.resolve(import.meta.dirname, "views");
+const engine = new TmlEngine({ viewsDir });
 
-app.engine(
-  "tml",
-  createViewEngine({
-    viewsDir,
-    cache: false,
-  }),
-);
-
-app.set("view engine", "tml");
-app.set("views", viewsDir);
-
-app.get("/", (_req, res) => {
-  res.render("pages/home", {
-    title: "TML Engine",
-    user: { name: "Ali", role: "admin" },
-    features: [
-      {
-        name: "Component Sistemi",
-        description: "Her sey bir component. Layout bile.",
-        isNew: false,
-      },
-      {
-        name: "Children",
-        description: "React benzeri children ile ic ice component'ler.",
-        isNew: true,
-      },
-      {
-        name: "Context API",
-        description: "@provide ile prop drilling olmadan veri paylasimi.",
-        isNew: true,
-      },
-      {
-        name: "CSS/JS Toplama",
-        description: "Sadece kullanilan component'lerin asset'leri toplanir.",
-        isNew: false,
-      },
-    ],
-    xssTest: '<script>alert("XSS")</script>',
-    safeHtml: '<em>Bu guvenli HTML</em>',
-  });
+const { html, collector } = engine.renderPage("pages/home", {
+  title: "TML Engine",
+  user: { name: "Ali", role: "admin" },
+  features: [
+    { name: "Component System", description: "Everything is a component. Even layouts.", isNew: false },
+    { name: "Children", description: "React-like children for nested components.", isNew: true },
+    { name: "Context API", description: "Share data without prop drilling via @provide.", isNew: true },
+    { name: "Asset Pipeline", description: "Only used components' assets are collected.", isNew: false },
+  ],
+  xssTest: '<script>alert("XSS")</script>',
+  safeHtml: "<em>This is trusted HTML</em>",
 });
 
-app.get("/about", (_req, res) => {
-  res.render("pages/about", {
-    title: "Hakkinda",
-    team: [
-      { name: "Ahmet", role: "Frontend Gelistirici" },
-      { name: "Ayse", role: "Backend Gelistirici" },
-      { name: "Mehmet", role: "DevOps Muhendisi" },
-    ],
-  });
-});
+const assets = await buildInlineAssets(collector);
+const finalHtml = injectAssets(html, assets);
 
-const port = 3456;
-app.listen(port, () => {
-  console.log(`TML Demo running at http://localhost:${port}`);
-});
+console.log(finalHtml);
