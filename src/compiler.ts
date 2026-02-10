@@ -49,6 +49,7 @@ function findClosingParen(str: string, start: number): number {
 	let parenDepth = 1;
 	let braceDepth = 0;
 	let inString: string | null = null;
+	let templateDepth = 0;
 
 	for (let i = start; i < str.length; i++) {
 		const ch = str[i];
@@ -58,13 +59,30 @@ function findClosingParen(str: string, start: number): number {
 				i++;
 				continue;
 			}
+			if (inString === "`") {
+				if (ch === "$" && i + 1 < str.length && str[i + 1] === "{") {
+					templateDepth++;
+					i++;
+					continue;
+				}
+				if (ch === "`") {
+					inString = null;
+				}
+				continue;
+			}
 			if (ch === inString) {
 				inString = null;
 			}
 			continue;
 		}
 
-		if (ch === '"' || ch === "'") {
+		if (templateDepth > 0 && ch === "}") {
+			templateDepth--;
+			inString = "`";
+			continue;
+		}
+
+		if (ch === '"' || ch === "'" || ch === "`") {
 			inString = ch;
 		} else if (ch === "(") {
 			parenDepth++;
@@ -482,5 +500,8 @@ function escapeJsString(str: string): string {
 		.replace(/\\/g, "\\\\")
 		.replace(/'/g, "\\'")
 		.replace(/\r/g, "\\r")
-		.replace(/\n/g, "\\n");
+		.replace(/\n/g, "\\n")
+		.replace(/\0/g, "\\0")
+		.replace(/\u2028/g, "\\u2028")
+		.replace(/\u2029/g, "\\u2029");
 }

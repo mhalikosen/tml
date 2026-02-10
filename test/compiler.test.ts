@@ -223,6 +223,62 @@ describe("compile", () => {
 		});
 	});
 
+	describe("escapeJsString edge cases", () => {
+		it("compiles template with null byte without errors", () => {
+			const result = render("<p>before\0after</p>");
+			expect(result).toContain("before");
+			expect(result).toContain("after");
+		});
+
+		it("compiles template with \\u2028 line separator without errors", () => {
+			const result = render("<p>before\u2028after</p>");
+			expect(result).toContain("before");
+			expect(result).toContain("after");
+		});
+
+		it("compiles template with \\u2029 paragraph separator without errors", () => {
+			const result = render("<p>before\u2029after</p>");
+			expect(result).toContain("before");
+			expect(result).toContain("after");
+		});
+
+		it("compiles template with all special chars combined", () => {
+			const result = render("<p>\0\u2028\u2029</p>");
+			expect(result).toContain("<p>");
+			expect(result).toContain("</p>");
+		});
+	});
+
+	describe("backtick template literals in findClosingParen", () => {
+		it("handles backtick string in @include props", () => {
+			const result = render("@include(x, { label: `hello` })", {}, {
+				include: (_path, data) => String(data.label),
+			});
+			expect(result).toContain("hello");
+		});
+
+		it("handles ${...} interpolation in backtick @include props", () => {
+			const result = render("@include(x, { label: `hi ${name}` })", { name: "world" }, {
+				include: (_path, data) => String(data.label),
+			});
+			expect(result).toContain("hi world");
+		});
+
+		it("handles inline @include with backtick props", () => {
+			const result = render("<td>@include(x, { label: `test` })</td>", {}, {
+				include: (_path, data) => String(data.label),
+			});
+			expect(result).toContain("<td>test</td>");
+		});
+
+		it("handles nested braces inside ${...} interpolation", () => {
+			const result = render("@include(x, { label: `${({a: 1}).a}` })", {}, {
+				include: (_path, data) => String(data.label),
+			});
+			expect(result).toContain("1");
+		});
+	});
+
 	describe("error cases", () => {
 		it("throws on @elseif without @if", () => {
 			expect(() => compile("@elseif(true)", "test.tml")).toThrow(TmlCompileError);
