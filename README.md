@@ -1,11 +1,11 @@
-# TML Engine
+# TML
 
-[![npm version](https://img.shields.io/npm/v/tml-engine.svg)](https://www.npmjs.com/package/tml-engine)
-[![license](https://img.shields.io/npm/l/tml-engine.svg)](https://github.com/mhalikosen/tml/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/tml.svg)](https://www.npmjs.com/package/tml)
+[![license](https://img.shields.io/npm/l/tml.svg)](https://github.com/mhalikosen/tml/blob/main/LICENSE)
 
 **Template Markup Language** - a Vue SFC-inspired, server-side template engine with a full component system for Node.js.
 
-TML lets you write each component as a single `.tml` file containing `<template>`, `<style>`, and `<script>` blocks - just like Vue Single File Components, but rendered entirely on the server. CSS and JS are collected only from the components that actually render on a given page, then minified and injected automatically.
+TML lets you write each component as a single `.tml` file containing `<template>`, `<style>`, and `<script>` blocks - just like Vue Single File Components, but rendered entirely on the server. CSS and JS are collected only from the components that actually render on a given page, then minified and returned as separate strings.
 
 ---
 
@@ -28,13 +28,9 @@ TML lets you write each component as a single `.tml` file containing `<template>
 - [Head Injection](#head-injection)
 - [Asset Pipeline](#asset-pipeline)
 - [XSS Protection](#xss-protection)
-- [Express Integration](#express-integration)
-- [Programmatic API](#programmatic-api)
-  - [TmlEngine](#tmlengine)
-  - [Standalone Functions](#standalone-functions)
+- [API](#api)
 - [TypeScript Types](#typescript-types)
 - [Error Handling](#error-handling)
-- [Configuration](#configuration)
 - [Testing](#testing)
 - [Project Structure](#project-structure)
 - [License](#license)
@@ -49,18 +45,14 @@ TML lets you write each component as a single `.tml` file containing `<template>
 - **Directives** - `@if` / `@elseif` / `@else`, `@each`, `@include`, `@component`, `@head`, `@children`, `@provide`
 - **Interpolation** - `{{ escaped }}` and `{{{ raw }}}` expressions with full JavaScript support
 - **Inline JavaScript** - `<% ... %>` blocks for complex logic within templates
-- **Automatic asset collection** - CSS and JS from only the rendered components are collected and injected
-- **Asset build caching** - `buildInlineAssets()` caches results by collector fingerprint, avoiding redundant esbuild calls
+- **Automatic asset collection** - CSS and JS from only the rendered components are collected and returned
 - **Head tag deduplication** - identical `@head` content from different components is deduplicated
-- **Injection point warnings** - `console.warn` when `</head>` or `</body>` tags are missing but assets need injection
-- **esbuild-powered** - CSS minification and JS bundling/IIFE-wrapping via esbuild
-- **Express integration** - works as an Express view engine via `createViewEngine` from `tml-engine/express`
-- **Framework-agnostic core** - `TmlEngine` class can be used without Express
+- **esbuild-powered** - CSS minification and JS bundling/IIFE-wrapping via esbuild (sync)
+- **Single function API** - one `render()` call returns `{ html, css, js }`
+- **Framework-agnostic** - use with any HTTP framework (Express, Fastify, Hono, etc.)
 - **XSS protection** - all `{{ }}` output is HTML-escaped by default
 - **Path traversal protection** - template paths are validated against the views directory
 - **Circular reference detection** - render depth limit prevents infinite component recursion
-- **Views directory validation** - `configure()` throws a descriptive error if the directory does not exist
-- **Symlink loop protection** - directory scanning detects and skips symlink cycles
 - **TypeScript** - fully typed with exported type definitions
 
 ---
@@ -68,61 +60,26 @@ TML lets you write each component as a single `.tml` file containing `<template>
 ## Installation
 
 ```bash
-npm install tml-engine
+npm install tml
 ```
 
 **Requirements**: Node.js >= 18
-
-Express is an optional peer dependency - TML works without it if you use the programmatic API.
 
 ---
 
 ## Quick Start
 
-### Programmatic API
-
 ```typescript
-import path from "node:path";
-import { TmlEngine, buildInlineAssets, injectAssets } from "tml-engine";
+import { render } from "tml";
 
-const engine = new TmlEngine({
-  viewsDir: path.resolve("views"),
-});
-
-const { html, collector } = engine.renderPage("pages/home", {
+const { html, css, js } = render("./views", "pages/home", {
   title: "Hello",
   items: ["a", "b", "c"],
 });
 
-const assets = await buildInlineAssets(collector);
-const finalHtml = injectAssets(html, assets);
-```
-
-### Express Integration
-
-```typescript
-import path from "node:path";
-import express from "express";
-import { createViewEngine } from "tml-engine/express";
-
-const app = express();
-const viewsDir = path.resolve(import.meta.dirname, "views");
-
-app.engine("tml", createViewEngine({ viewsDir, cache: false }));
-app.set("view engine", "tml");
-app.set("views", viewsDir);
-
-app.get("/", (_req, res) => {
-  res.render("pages/home", {
-    title: "My App",
-    items: [
-      { name: "Alpha", active: true },
-      { name: "Beta", active: false },
-    ],
-  });
-});
-
-app.listen(3000);
+// html → rendered HTML string (@head content injected before </head>)
+// css  → minified CSS string (collected from all rendered components, deduplicated)
+// js   → bundled+minified JS string (IIFE, collected from all rendered components)
 ```
 
 ### Create a layout (`views/layouts/main.tml`)
@@ -174,9 +131,33 @@ app.listen(3000);
 
 When rendered, TML will:
 1. Compile and render the page template with the provided data
-2. Collect CSS from all rendered components (layout, page)
-3. Minify the CSS via esbuild and inject it as an inline `<style>` tag before `</head>`
-4. Bundle/minify any `<script>` blocks and inject them before `</body>`
+2. Inject `@head` content before `</head>` in the HTML
+3. Collect CSS from all rendered components, minify via esbuild, and return as `css`
+4. Bundle/minify any `<script>` blocks as IIFE and return as `js`
+
+### Using with Express
+
+```typescript
+import express from "express";
+import { render } from "tml";
+
+const app = express();
+
+app.get("/", (req, res) => {
+  const { html, css, js } = render("./views", "pages/home", {
+    title: "My App",
+  });
+
+  // Inject CSS/JS however you prefer:
+  const finalHtml = html
+    .replace("</head>", `<style>${css}</style></head>`)
+    .replace("</body>", `<script>${js}</script></body>`);
+
+  res.send(finalHtml);
+});
+
+app.listen(3000);
+```
 
 ---
 
@@ -275,11 +256,6 @@ Conditional rendering. The expression is evaluated as JavaScript:
 @end
 ```
 
-- `@if(expr)` - starts a conditional block
-- `@elseif(expr)` - optional, can chain multiple
-- `@else` - optional, the fallback branch
-- `@end` - required, closes the block
-
 #### `@each` / `@end`
 
 Iterates over an array or any iterable. A `$index` variable (0-based) is automatically available:
@@ -293,18 +269,6 @@ Iterates over an array or any iterable. A `$index` variable (0-based) is automat
 @end
 ```
 
-The iteration variable name is yours to choose:
-
-```html
-@each(user of team)
-  <p>{{ user.name }} - {{ user.role }}</p>
-@end
-
-@each(tag of post.tags)
-  <span class="tag">{{ tag }}</span>
-@end
-```
-
 You can iterate over any expression that returns an iterable:
 
 ```html
@@ -315,49 +279,28 @@ You can iterate over any expression that returns an iterable:
 
 #### `@include`
 
-Renders another template inline. The included template receives the current template's data, optionally merged with additional props:
+Renders another template inline:
 
 ```html
-<!-- Include with parent data -->
 @include(components/header)
-
-<!-- Include with extra props (merged into parent data) -->
 @include(components/hero, { heading: title, subtitle: "Welcome" })
 ```
 
-Paths are relative to the views directory, without the `.tml` extension. An include does **not** support children - use `@component` for that.
+Paths are relative to the views directory, without the `.tml` extension.
 
 #### `@component` / `@end`
 
-Renders a component and passes the content between `@component` and `@end` as children. The component uses `@children` to render the passed content:
+Renders a component and passes the content between `@component` and `@end` as children:
 
 ```html
 @component(components/card, { title: "My Card" })
   <p>This paragraph becomes the children content.</p>
-  <p>You can put any HTML and directives here.</p>
 @end
-```
-
-The component file (`components/card.tml`):
-
-```html
-<template>
-  <div class="card">
-    <h3>{{ title }}</h3>
-    <div class="card-body">
-      @children
-    </div>
-  </div>
-</template>
-
-<style>
-  .card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.5rem; }
-</style>
 ```
 
 #### `@children`
 
-Outputs the children content passed by a parent `@component`. If no children were passed, outputs nothing:
+Outputs the children content passed by a parent `@component`:
 
 ```html
 <template>
@@ -373,31 +316,26 @@ Injects a value into the context, accessible by all descendant components via `$
 
 ```html
 @provide(theme, { primary: "#3040d0", dark: "#1a1a2e" })
-@provide(locale, "en")
 ```
 
-Any nested component (at any depth) can read the value:
+Any nested component can read the value:
 
 ```html
 <p style="color: {{ $context.theme.primary }}">Themed text</p>
-<p>Locale: {{ $context.locale }}</p>
 ```
-
-Context values are immutable per render scope - a child `@provide` creates a new context for its descendants without affecting siblings.
 
 #### `@head` / `@end`
 
-Injects content into the document's `<head>` tag. Useful for per-page meta tags, titles, or link elements:
+Injects content into the document's `<head>` tag:
 
 ```html
 @head
   <title>{{ title }} | My App</title>
   <meta name="description" content="{{ description }}">
-  <link rel="canonical" href="{{ canonicalUrl }}">
 @end
 ```
 
-The content is collected during render and inserted before `</head>` in the final HTML. Multiple `@head` blocks from different components are concatenated. Identical `@head` content from different components is deduplicated by content.
+The content is collected during render and inserted before `</head>` in the final HTML. If `@head` is used but the HTML does not contain a `</head>` tag, an error is thrown.
 
 ---
 
@@ -425,21 +363,6 @@ For logic that doesn't fit in a single expression, use inline JS blocks.
 <p>Total: ${{ grandTotal.toFixed(2) }}</p>
 ```
 
-#### Inline `for` loops
-
-You can use JavaScript control flow directly:
-
-```html
-<% for (const [index, member] of team.entries()) { %>
-  <tr>
-    <td>{{ index + 1 }}</td>
-    <td>{{ member.name }}</td>
-  </tr>
-<% } %>
-```
-
-**Note:** Inline JS runs in the same scope as the compiled template. All template data variables are available. Variables declared in inline JS blocks are accessible by subsequent template content.
-
 ---
 
 ## Component System
@@ -448,38 +371,17 @@ You can use JavaScript control flow directly:
 
 `@include` renders a component inline, passing data through:
 
-```
-views/
-  components/
-    badge.tml
-  pages/
-    home.tml
-```
-
 ```html
-<!-- pages/home.tml -->
 @include(components/badge, { text: "New" })
 ```
 
-```html
-<!-- components/badge.tml -->
-<template>
-  <span class="badge">{{ text }}</span>
-</template>
-
-<style>
-  .badge { padding: 0.2rem 0.6rem; background: #3040d0; color: #fff; border-radius: 12px; }
-</style>
-```
-
-The included component receives the parent's data merged with any additional props. Additional props override parent data when keys conflict.
+The included component receives the parent's data merged with any additional props.
 
 ### Component (with children)
 
 `@component` wraps content and passes it as children:
 
 ```html
-<!-- pages/home.tml -->
 @component(components/card, { title: "Features" })
   <ul>
     <li>Fast rendering</li>
@@ -518,7 +420,6 @@ Pages wrap their content with the layout:
   @component(layouts/main)
     <main>
       <h1>{{ title }}</h1>
-      <p>Page content here</p>
     </main>
   @end
 </template>
@@ -537,7 +438,7 @@ Components can be nested to any depth. Each component's CSS and JS are collected
 @end
 ```
 
-TML includes a render depth limit (100 levels) to detect accidental circular references. If component A includes component B which includes component A, TML will throw a `TmlRenderError` instead of recursing infinitely.
+TML includes a render depth limit (100 levels) to detect accidental circular references.
 
 ---
 
@@ -554,8 +455,6 @@ The context API lets you pass data down the component tree without threading it 
 
 ### Reading context
 
-Any component at any depth can access context values through the `$context` object:
-
 ```html
 <div style="background: {{ $context.theme.secondary }}">
   <p style="color: {{ $context.theme.primary }}">
@@ -568,14 +467,6 @@ Any component at any depth can access context values through the `$context` obje
 
 Context flows downward. A `@provide` in a page is visible to all components rendered within that page. A `@provide` inside a component is only visible to that component's descendants.
 
-```html
-@provide(level, "page")      <!-- visible everywhere below -->
-@component(layouts/main)
-  @provide(level, "layout")  <!-- overrides for layout's descendants only -->
-  <p>{{ $context.level }}</p> <!-- "layout" -->
-@end
-```
-
 ---
 
 ## Head Injection
@@ -583,12 +474,10 @@ Context flows downward. A `@provide` in a page is visible to all components rend
 The `@head` directive lets any component contribute to the document's `<head>`:
 
 ```html
-<!-- pages/blog-post.tml -->
 <template>
   @head
     <title>{{ post.title }} | Blog</title>
     <meta property="og:title" content="{{ post.title }}">
-    <meta property="og:description" content="{{ post.excerpt }}">
   @end
   @component(layouts/main)
     <article>{{ post.content }}</article>
@@ -598,7 +487,7 @@ The `@head` directive lets any component contribute to the document's `<head>`:
 
 Head tags from all rendered components are collected and injected before the `</head>` closing tag. Identical `@head` content from different components is automatically deduplicated.
 
-If the HTML does not contain a `</head>` tag, a `console.warn` is emitted to help with debugging.
+**Important:** If `@head` is used but the rendered HTML does not contain a `</head>` tag, a `TmlRenderError` is thrown. This prevents silent failures in partial renders.
 
 ---
 
@@ -606,51 +495,21 @@ If the HTML does not contain a `</head>` tag, a `console.warn` is emitted to hel
 
 TML automatically handles CSS and JS assets:
 
-1. **Collection** - When a component is rendered, its `<style>` and `<script>` blocks are collected into a `RenderCollector`
-2. **Deduplication** - Each component's assets are stored by component path, so a component rendered multiple times (e.g. in a loop) only contributes its assets once
-3. **CSS Minification** - All collected CSS is concatenated and minified using esbuild's CSS transform
-4. **JS Bundling** - Each component's JS is bundled independently as an IIFE using esbuild, then concatenated
-5. **Injection** - The minified CSS is injected as `<style>` before `</head>`, the bundled JS as `<script>` before `</body>`
-6. **Caching** - `buildInlineAssets()` caches results by collector fingerprint (up to 100 entries, FIFO eviction). Identical collector contents return cached results without calling esbuild again. Call `clearAssetCache()` to invalidate.
-
-### Custom asset handling
-
-With `createViewEngine`, you can intercept the asset pipeline:
+1. **Collection** - When a component is rendered, its `<style>` and `<script>` blocks are collected
+2. **Deduplication** - Each component's assets are stored by component path, so a component rendered multiple times only contributes its assets once
+3. **CSS Minification** - All collected CSS is concatenated and minified using esbuild's `transformSync`
+4. **JS Bundling** - Each component's JS is bundled independently as an IIFE using esbuild's `buildSync`, then concatenated
+5. **Returned separately** - CSS and JS are returned as separate strings in the `RenderResult`, giving you full control over how to deliver them
 
 ```typescript
-app.engine(
-  "tml",
-  createViewEngine({
-    viewsDir,
-    onAssets: (collector) => {
-      // collector.styles - Map<componentPath, cssString>
-      // collector.scripts - Map<componentPath, jsString>
-      // collector.headTags - Map<componentPath, headHtml>
+const { html, css, js } = render("./views", "pages/home", data);
 
-      // Return your own asset tags
-      return {
-        headTag: "",   // injected before </head>
-        cssTag: "",    // injected before </head> (after headTag)
-        jsTag: "",     // injected before </body>
-      };
-    },
-  }),
-);
-```
+// Inline injection
+const finalHtml = html
+  .replace("</head>", `<style>${css}</style></head>`)
+  .replace("</body>", `<script>${js}</script></body>`);
 
-With the programmatic API, you have full control:
-
-```typescript
-const { html, collector } = engine.renderPage("pages/home", data);
-
-// Access raw assets
-for (const [componentPath, css] of collector.styles) {
-  console.log(`CSS from ${componentPath}:`, css);
-}
-
-// Or use the built-in builder
-const assets = await buildInlineAssets(collector);
-const finalHtml = injectAssets(html, assets);
+// Or serve as separate files, use a CDN, etc.
 ```
 
 ---
@@ -667,121 +526,45 @@ All `{{ expression }}` output is HTML-escaped by default. The following characte
 | `"`       | `&quot;`   |
 | `'`       | `&#39;`    |
 
-```html
-<!-- If user.name is '<script>alert("xss")</script>' -->
-<p>{{ user.name }}</p>
-<!-- Output: <p>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</p> -->
-```
-
-Use `{{{ }}}` (triple braces) only for trusted, pre-sanitized HTML content:
-
-```html
-{{{ trustedHtmlFromCMS }}}
-```
+Use `{{{ }}}` (triple braces) only for trusted, pre-sanitized HTML content.
 
 ---
 
-## Express Integration
+## API
 
-### `createViewEngine`
+### `render(viewsDir, viewPath, data?)`
 
-Import `createViewEngine` from the `/express` subpath:
-
-```typescript
-import { createViewEngine } from "tml-engine/express";
-
-app.engine(
-  "tml",
-  createViewEngine({
-    viewsDir: path.resolve("views"),
-    cache: process.env.NODE_ENV === "production",
-    onAssets: (collector) => {
-      // Custom asset processing
-      return { headTag: "", cssTag: "", jsTag: "" };
-    },
-  }),
-);
-```
-
-This creates a dedicated `TmlEngine` instance.
-
-#### `TmlExpressOptions`
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `viewsDir` | `string` | - | **Required.** Absolute path to the views directory |
-| `cache` | `boolean` | `true` in production | Cache compiled templates |
-| `onAssets` | `(collector: RenderCollector) => AssetTags` | - | Custom asset processing. When not provided, assets are built and injected inline automatically |
-
----
-
-## Programmatic API
-
-### `TmlEngine`
-
-Use `TmlEngine` directly for framework-agnostic rendering:
+The main (and only) function. Renders a `.tml` template and returns HTML, CSS, and JS.
 
 ```typescript
-import { TmlEngine, buildInlineAssets, injectAssets } from "tml-engine";
+import { render } from "tml";
 
-const engine = new TmlEngine({
-  viewsDir: path.resolve("views"),
-  cache: true,
-});
-
-// Render a page
-const { html, collector } = engine.renderPage("pages/home", {
-  title: "Hello",
-  items: ["a", "b", "c"],
-});
-
-// Build and inject CSS/JS assets
-const assets = await buildInlineAssets(collector);
-const finalHtml = injectAssets(html, assets);
+const result = render(viewsDir, viewPath, data);
 ```
 
-#### Constructor
+**Parameters:**
 
-```typescript
-new TmlEngine(config?: TmlEngineConfig)
-```
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `viewsDir` | `string` | Path to the views directory |
+| `viewPath` | `string` | Template path relative to viewsDir (without `.tml` extension) |
+| `data` | `Record<string, unknown>` | Template data (optional, defaults to `{}`) |
 
-If a config is provided, `configure()` is called immediately, scanning the views directory.
+**Returns:** `RenderResult`
 
-#### Methods
+| Property | Type | Description |
+|----------|------|-------------|
+| `html` | `string` | Rendered HTML with `@head` content injected before `</head>` |
+| `css` | `string` | Minified CSS from all rendered components (empty string if none) |
+| `js` | `string` | Bundled+minified JS from all rendered components (empty string if none) |
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `configure(config: TmlEngineConfig)` | `void` | Set views directory and cache option. Clears all caches and scans the views directory |
-| `renderPage(path, data?, context?)` | `RenderResult` | Render a page template. Returns `{ html, collector }` |
-| `renderFile(filePath, options, callback)` | `Promise<void>` | Express-compatible render method. Builds and injects assets automatically |
-| `renderComponent(path, data, context, collector, children?)` | `string` | Render a single component. Low-level - prefer `renderPage` |
-| `clearCache()` | `void` | Clear compiled template, parsed component, and asset build caches |
-| `getCSS(componentPath)` | `string \| undefined` | Get the raw CSS for a specific component |
-| `getJS(componentPath)` | `string \| undefined` | Get the raw JS for a specific component |
-| `getAllCSS()` | `Map<string, string>` | Get all registered CSS (component path -> CSS string) |
-| `getAllJS()` | `Map<string, string>` | Get all registered JS (component path -> JS string) |
-
-### Standalone Functions
-
-#### `buildInlineAssets(collector: RenderCollector): Promise<AssetTags>`
-
-Takes a render collector and produces minified/bundled asset tags:
-- Concatenates and minifies all CSS via esbuild
-- Bundles each component's JS as an IIFE via esbuild
-- Joins and deduplicates head tags
-- Results are cached by collector fingerprint - identical collectors return cached results
-
-#### `injectAssets(html: string, assets: AssetTags): string`
-
-Injects asset tags into the HTML string:
-- `assets.headTag` and `assets.cssTag` are injected before `</head>`
-- `assets.jsTag` is injected before `</body>`
-- Emits `console.warn` if injection points are missing but assets exist
-
-#### `clearAssetCache(): void`
-
-Clears the module-level asset build cache. Also called by `TmlEngine.clearCache()`.
+**Behavior:**
+- Synchronous - uses `esbuild.transformSync` and `esbuild.buildSync`
+- No caching - templates are read and compiled on every call
+- `@head` content is injected before `</head>` in the HTML
+- If `@head` is used but `</head>` is not found, throws `TmlRenderError`
+- CSS/JS are returned as separate strings, not injected into the HTML
+- Component CSS/JS are deduplicated by component path
 
 ---
 
@@ -790,53 +573,16 @@ Clears the module-level asset build cache. Also called by `TmlEngine.clearCache(
 All types are exported from the main entry point:
 
 ```typescript
-import type {
-  AssetTags,
-  CompiledTemplate,
-  ExpressViewEngine,
-  ParsedComponent,
-  RenderCollector,
-  RenderResult,
-  TemplateCache,
-  TmlEngineConfig,
-} from "tml-engine";
-```
-
-### `TmlEngineConfig`
-
-```typescript
-interface TmlEngineConfig {
-  viewsDir: string;   // Absolute path to views directory
-  cache?: boolean;     // Cache compiled templates (default: false)
-}
+import type { CompiledTemplate, ParsedComponent, RenderResult } from "tml";
 ```
 
 ### `RenderResult`
 
 ```typescript
 interface RenderResult {
-  html: string;                // The rendered HTML string
-  collector: RenderCollector;  // Collected assets from rendered components
-}
-```
-
-### `RenderCollector`
-
-```typescript
-interface RenderCollector {
-  styles: Map<string, string>;    // Component path -> CSS
-  scripts: Map<string, string>;   // Component path -> JS
-  headTags: Map<string, string>;  // Component path -> head HTML
-}
-```
-
-### `AssetTags`
-
-```typescript
-interface AssetTags {
-  headTag: string;  // Collected @head content
-  cssTag: string;   // <style> tag with minified CSS
-  jsTag: string;    // <script> tag with bundled JS
+  html: string;  // Rendered HTML string
+  css: string;   // Minified CSS from all rendered components
+  js: string;    // Bundled+minified JS from all rendered components
 }
 ```
 
@@ -850,16 +596,6 @@ interface ParsedComponent {
 }
 ```
 
-### `ExpressViewEngine`
-
-```typescript
-type ExpressViewEngine = (
-  filePath: string,
-  options: Record<string, unknown>,
-  callback: (err: Error | null, rendered?: string) => void,
-) => void;
-```
-
 ---
 
 ## Error Handling
@@ -871,10 +607,10 @@ TML provides two error classes for template issues:
 Thrown during template compilation (syntax errors in directives):
 
 ```typescript
-import { TmlCompileError } from "tml-engine";
+import { TmlCompileError } from "tml";
 
 try {
-  engine.renderPage("pages/broken", data);
+  render("./views", "pages/broken", data);
 } catch (error) {
   if (error instanceof TmlCompileError) {
     console.error(error.message);   // "Unclosed @if block - missing @end at pages/broken:15"
@@ -884,23 +620,15 @@ try {
 }
 ```
 
-Common compile errors:
-- `Unclosed @if block - missing @end`
-- `@else without matching @if`
-- `@elseif without matching @if`
-- `Unexpected @end without matching block`
-- `Unclosed <% block - missing %>`
-- `Compilation failed: ...`
-
 ### `TmlRenderError`
 
 Thrown during template rendering (runtime errors in expressions):
 
 ```typescript
-import { TmlRenderError } from "tml-engine";
+import { TmlRenderError } from "tml";
 
 try {
-  engine.renderPage("pages/home", data);
+  render("./views", "pages/home", data);
 } catch (error) {
   if (error instanceof TmlRenderError) {
     console.error(error.message);   // "Cannot read properties of undefined at pages/home:0"
@@ -915,34 +643,7 @@ Common render errors:
 - `Maximum render depth (100) exceeded - possible circular component reference`
 - `Template not found: ...`
 - `Path traversal detected: ...`
-
----
-
-## Configuration
-
-### Caching
-
-When `cache: true`, compiled template functions are stored in memory. The views directory is scanned once at startup. This is recommended for production.
-
-When `cache: false` (default), templates are re-read and re-compiled on every render. This gives instant feedback during development.
-
-```typescript
-const engine = new TmlEngine({
-  viewsDir: path.resolve("views"),
-  cache: process.env.NODE_ENV === "production",
-});
-```
-
-### Views Directory
-
-The views directory is scanned recursively on `configure()`. If the directory does not exist, a descriptive error is thrown. Symlink loops within the directory are detected and skipped. All `.tml` files are parsed and their CSS/JS are registered. Template paths in directives are relative to the views directory:
-
-```
-views/
-  layouts/main.tml      -> path: "layouts/main"
-  components/card.tml   -> path: "components/card"
-  pages/home.tml        -> path: "pages/home"
-```
+- `@head directive requires a </head> tag in the document`
 
 ---
 
@@ -953,7 +654,7 @@ npm test            # Run all tests once
 npm run test:watch  # Run tests in watch mode
 ```
 
-Tests use [vitest](https://vitest.dev/) and cover helpers, parser, compiler, engine integration, and the Express adapter.
+Tests use [vitest](https://vitest.dev/) and cover helpers, parser, compiler, and engine integration.
 
 ---
 
@@ -962,21 +663,19 @@ Tests use [vitest](https://vitest.dev/) and cover helpers, parser, compiler, eng
 ```
 src/
   index.ts          # Public API exports
-  engine.ts         # TmlEngine class, asset building/caching, asset injection
-  express.ts        # Express view engine adapter (createViewEngine)
+  engine.ts         # render() function, head injection, CSS/JS processing
   compiler.ts       # Template-to-function compiler (directives, interpolation)
   parser.ts         # SFC parser (extracts <template>, <style>, <script>)
-  helpers.ts        # HTML escaping, path safety, render data extraction
+  helpers.ts        # HTML escaping, path safety
   types.ts          # Shared TypeScript types and interfaces
 test/
   fixtures/         # Minimal .tml files for integration tests
-  helpers.test.ts   # escapeHtml, safePath, extractRenderData tests
+  helpers.test.ts   # escapeHtml, safePath tests
   parser.test.ts    # SFC parser tests
   compiler.test.ts  # Compiler directive and interpolation tests
-  engine.test.ts    # TmlEngine integration tests
-  express.test.ts   # Express adapter (createViewEngine) tests
+  engine.test.ts    # render() integration tests
 example/
-  app.ts            # Programmatic demo script (prints HTML to stdout)
+  app.ts            # Demo script (prints HTML/CSS/JS to stdout)
   views/            # Example .tml templates
 ```
 

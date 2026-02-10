@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { escapeHtml, extractRenderData, safePath } from "../src/helpers.ts";
+import { escapeHtml, safePath } from "../src/helpers.ts";
 
 describe("escapeHtml", () => {
 	it("escapes & < > \" '", () => {
@@ -47,40 +47,5 @@ describe("safePath", () => {
 		expect(() => safePath(baseDir, "../../secret")).toThrow(
 			"Path traversal detected",
 		);
-	});
-});
-
-describe("extractRenderData", () => {
-	const viewsDir = "/tmp/views";
-
-	it("extracts relative path without .tml", () => {
-		const result = extractRenderData(viewsDir, "/tmp/views/pages/home.tml", {});
-		expect(result.relativePath).toBe("pages/home");
-	});
-
-	it("strips Express internals from data", () => {
-		const options = {
-			settings: { views: "/tmp/views" },
-			_locals: {},
-			cache: true,
-			title: "Hello",
-		};
-		const result = extractRenderData(viewsDir, "/tmp/views/test.tml", options);
-		expect(result.data).toEqual({ title: "Hello" });
-		expect(result.data).not.toHaveProperty("settings");
-		expect(result.data).not.toHaveProperty("_locals");
-		expect(result.data).not.toHaveProperty("cache");
-	});
-
-	it("extracts $context from data", () => {
-		const options = { $context: { theme: "dark" }, title: "Test" };
-		const result = extractRenderData(viewsDir, "/tmp/views/test.tml", options);
-		expect(result.context).toEqual({ theme: "dark" });
-		expect(result.data).not.toHaveProperty("$context");
-	});
-
-	it("returns empty context when $context not provided", () => {
-		const result = extractRenderData(viewsDir, "/tmp/views/test.tml", { title: "Test" });
-		expect(result.context).toEqual({});
 	});
 });

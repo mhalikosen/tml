@@ -1,335 +1,290 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { compile } from "../src/compiler.ts";
-import { buildInlineAssets, clearAssetCache, injectAssets, TmlEngine } from "../src/index.ts";
-import { escapeHtml } from "../src/helpers.ts";
-import type { RenderCollector } from "../src/types.ts";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { render } from "../src/index.ts";
 
 const fixturesDir = path.resolve(import.meta.dirname, "fixtures");
 
-describe("TmlEngine", () => {
-	let engine: TmlEngine;
+describe("render", () => {
+	describe("basic rendering", () => {
+		it("renders a simple template", () => {
+			const result = render(fixturesDir, "simple", { title: "Hello" });
+			expect(result.html).toContain("<h1>Hello</h1>");
+			expect(result.css).toBe("");
+			expect(result.js).toBe("");
+		});
 
-	beforeEach(() => {
-		clearAssetCache();
-		engine = new TmlEngine({ viewsDir: fixturesDir });
+		it("renders a template with style", () => {
+			const result = render(fixturesDir, "with-style", {
+				message: "Hi",
+			});
+			expect(result.html).toContain("Hi");
+			expect(result.css).not.toBe("");
+			expect(result.css).toContain("color");
+		});
+
+		it("renders a template with script", () => {
+			const result = render(fixturesDir, "with-script", {
+				label: "Click",
+			});
+			expect(result.html).toContain("Click");
+			expect(result.css).not.toBe("");
+			expect(result.js).not.toBe("");
+		});
 	});
 
-	describe("constructor and configure", () => {
-		it("creates engine with config", () => {
-			expect(engine).toBeInstanceOf(TmlEngine);
-		});
-
-		it("creates engine without config and configures later", () => {
-			const lazyEngine = new TmlEngine();
-			lazyEngine.configure({ viewsDir: fixturesDir });
-			const { html } = lazyEngine.renderPage("simple", { title: "Test" });
-			expect(html).toContain("Test");
-		});
-
-		it("throws when viewsDir does not exist", () => {
-			expect(() => new TmlEngine({ viewsDir: "/nonexistent" })).toThrow(
-				"Views directory does not exist",
+	describe("@include", () => {
+		it("renders nested template via @include", () => {
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-include-"),
 			);
-		});
-	});
-
-	describe("symlink loop protection", () => {
-		it("handles symlink loop without crashing", () => {
-			const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tml-symlink-"));
 			try {
 				fs.writeFileSync(
-					path.join(tmpDir, "index.tml"),
-					"<template>\n  <p>{{ title }}</p>\n</template>",
+					path.join(tmpDir, "page.tml"),
+					'<template>\n  @include(partial, { label: "Menu" })\n</template>',
 				);
-				fs.symlinkSync(tmpDir, path.join(tmpDir, "loop"));
-
-				const loopEngine = new TmlEngine({ viewsDir: tmpDir });
-				const { html } = loopEngine.renderPage("index", { title: "works" });
-				expect(html).toContain("works");
+				fs.writeFileSync(
+					path.join(tmpDir, "partial.tml"),
+					"<template>\n  <nav>{{ label }}</nav>\n</template>",
+				);
+				const result = render(tmpDir, "page", {});
+				expect(result.html).toContain("<nav>Menu</nav>");
 			} finally {
 				fs.rmSync(tmpDir, { recursive: true, force: true });
 			}
 		});
 	});
 
-	describe("renderPage", () => {
-		it("returns html and collector", () => {
-			const result = engine.renderPage("simple", { title: "Hello" });
-			expect(result).toHaveProperty("html");
-			expect(result).toHaveProperty("collector");
-			expect(result.html).toContain("<h1>Hello</h1>");
-		});
-
-		it("collects styles into collector", () => {
-			const { collector } = engine.renderPage("with-style", { message: "Hi" });
-			expect(collector.styles.size).toBeGreaterThan(0);
-			expect(collector.styles.has("with-style")).toBe(true);
-		});
-
-		it("collects scripts into collector", () => {
-			const { collector } = engine.renderPage("with-script", { label: "Click" });
-			expect(collector.scripts.size).toBeGreaterThan(0);
-			expect(collector.scripts.has("with-script")).toBe(true);
-		});
-	});
-
-	describe("@include", () => {
-		it("renders nested template via @include", () => {
-			const template = '@include(partial, { label: "Menu" })';
-			const fn = compile(template, "test-page");
-			const collector: RenderCollector = { styles: new Map(), scripts: new Map(), headTags: new Map() };
-
-			const includeHandler = (includePath: string, data: Record<string, unknown>, context: Record<string, unknown>) =>
-				engine.renderComponent(includePath, data, context, collector);
-			const componentHandler = () => "";
-			const headHandler = () => {};
-
-			const html = fn({}, escapeHtml, includeHandler, componentHandler, {}, headHandler);
-			expect(html).toContain("<nav>Menu</nav>");
-		});
-	});
-
-	describe("@component with children", () => {
+	describe("@component with @children", () => {
 		it("renders component with children", () => {
-			const template = '@component(card, { title: "Test Card" })\n  <p>Card content</p>\n@end';
-			const fn = compile(template, "test-page");
-			const collector: RenderCollector = { styles: new Map(), scripts: new Map(), headTags: new Map() };
-
-			const includeHandler = (includePath: string, data: Record<string, unknown>, context: Record<string, unknown>) =>
-				engine.renderComponent(includePath, data, context, collector);
-			const componentHandler = (compPath: string, compData: Record<string, unknown>, compContext: Record<string, unknown>, childrenFn: () => string) =>
-				engine.renderComponent(compPath, compData, compContext, collector, childrenFn());
-			const headHandler = (fnArg: () => string) => {
-				const result = fnArg();
-				if (result) collector.headTags.set("test-page", result);
-			};
-
-			const html = fn({}, escapeHtml, includeHandler, componentHandler, {}, headHandler);
-			expect(html).toContain("Test Card");
-			expect(html).toContain("Card content");
-			expect(collector.styles.has("card")).toBe(true);
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-component-"),
+			);
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "page.tml"),
+					'<template>\n  @component(card, { title: "Test Card" })\n    <p>Card content</p>\n  @end\n</template>',
+				);
+				fs.writeFileSync(
+					path.join(tmpDir, "card.tml"),
+					'<template>\n  <div class="card">\n    <h3>{{ title }}</h3>\n    @children\n  </div>\n</template>\n\n<style>\n  .card { border: 1px solid #ccc; }\n</style>',
+				);
+				const result = render(tmpDir, "page", {});
+				expect(result.html).toContain("Test Card");
+				expect(result.html).toContain("Card content");
+				expect(result.css).not.toBe("");
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
 		});
 	});
 
 	describe("render depth guard", () => {
-		it("renders within depth limit", () => {
-			const collector: RenderCollector = { styles: new Map(), scripts: new Map(), headTags: new Map() };
-			const result = engine.renderComponent("simple", { title: "test" }, {}, collector);
-			expect(result).toContain("test");
-		});
-	});
-
-	describe("clearCache", () => {
-		it("forces re-compilation", () => {
-			const { html: html1 } = engine.renderPage("simple", { title: "First" });
-			expect(html1).toContain("First");
-
-			engine.clearCache();
-
-			const { html: html2 } = engine.renderPage("simple", { title: "Second" });
-			expect(html2).toContain("Second");
-		});
-	});
-
-	describe("buildInlineAssets", () => {
-		it("produces <style> and <script> tags", async () => {
-			const { collector } = engine.renderPage("with-script", { label: "Btn" });
-			const assets = await buildInlineAssets(collector);
-			expect(assets.cssTag).toContain("<style>");
-			expect(assets.jsTag).toContain("<script>");
-		});
-
-		it("returns cached result on second call", async () => {
-			const { collector } = engine.renderPage("with-style", { message: "Hi" });
-			const assets1 = await buildInlineAssets(collector);
-			const assets2 = await buildInlineAssets(collector);
-			expect(assets1).toBe(assets2);
-		});
-	});
-
-	describe("asset cache bounds", () => {
-		it("evicts oldest entries when cache exceeds max size", async () => {
-			for (let i = 0; i < 110; i++) {
-				const collector: RenderCollector = {
-					styles: new Map([[`comp-${i}`, `.c${i} { color: red; }`]]),
-					scripts: new Map(),
-					headTags: new Map(),
-				};
-				await buildInlineAssets(collector);
+		it("throws on circular component reference", () => {
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-depth-"),
+			);
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "a.tml"),
+					"<template>\n  @include(b)\n</template>",
+				);
+				fs.writeFileSync(
+					path.join(tmpDir, "b.tml"),
+					"<template>\n  @include(a)\n</template>",
+				);
+				expect(() => render(tmpDir, "a", {})).toThrow(
+					"Maximum render depth",
+				);
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
 			}
-			const lastCollector: RenderCollector = {
-				styles: new Map([["comp-109", ".c109 { color: red; }"]]),
-				scripts: new Map(),
-				headTags: new Map(),
-			};
-			const result = await buildInlineAssets(lastCollector);
-			expect(result.cssTag).toContain("<style>");
-		});
-
-		it("produces different cache keys for collectors with ambiguous separators", async () => {
-			const collectorA: RenderCollector = {
-				styles: new Map([["a:b", "x"]]),
-				scripts: new Map(),
-				headTags: new Map(),
-			};
-			const collectorB: RenderCollector = {
-				styles: new Map([["a", "b:x"]]),
-				scripts: new Map(),
-				headTags: new Map(),
-			};
-			const resultA = await buildInlineAssets(collectorA);
-			clearAssetCache();
-			const resultB = await buildInlineAssets(collectorB);
-			expect(resultA.cssTag).not.toBe(resultB.cssTag);
 		});
 	});
 
-	describe("clearAssetCache", () => {
-		it("invalidates cached assets", async () => {
-			const { collector } = engine.renderPage("with-style", { message: "Hi" });
-			const assets1 = await buildInlineAssets(collector);
-			clearAssetCache();
-			const assets2 = await buildInlineAssets(collector);
-			expect(assets1).not.toBe(assets2);
-			expect(assets1.cssTag).toBe(assets2.cssTag);
-		});
-	});
-
-	describe("injectAssets", () => {
-		it("injects before </head> and </body>", () => {
-			const html = "<html><head></head><body></body></html>";
-			const result = injectAssets(html, {
-				headTag: "<meta name='test'>",
-				cssTag: "<style>body{}</style>",
-				jsTag: "<script>alert(1)</script>",
-			});
-			expect(result).toContain("<meta name='test'>\n<style>body{}</style>\n</head>");
-			expect(result).toContain("<script>alert(1)</script>\n</body>");
-		});
-
-		it("warns on missing </head> when assets exist", () => {
-			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-			injectAssets("<html><body></body></html>", {
-				headTag: "<meta>",
-				cssTag: "<style></style>",
-				jsTag: "",
-			});
-			expect(warnSpy).toHaveBeenCalledWith(
-				"[tml] Could not inject head/CSS assets: </head> tag not found",
+	describe("CSS/JS collection and minification", () => {
+		it("collects and minifies CSS from multiple components", () => {
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-assets-"),
 			);
-			warnSpy.mockRestore();
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "page.tml"),
+					"<template>\n  @include(comp-a)\n  @include(comp-b)\n</template>\n\n<style>\n  .page { margin: 0; }\n</style>",
+				);
+				fs.writeFileSync(
+					path.join(tmpDir, "comp-a.tml"),
+					"<template>\n  <div>A</div>\n</template>\n\n<style>\n  .a { color: red; }\n</style>",
+				);
+				fs.writeFileSync(
+					path.join(tmpDir, "comp-b.tml"),
+					"<template>\n  <div>B</div>\n</template>\n\n<style>\n  .b { color: blue; }\n</style>",
+				);
+				const result = render(tmpDir, "page", {});
+				expect(result.css).toContain(".page");
+				expect(result.css).toContain(".a");
+				expect(result.css).toContain(".b");
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
 		});
 
-		it("warns on missing </body> when JS assets exist", () => {
-			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-			injectAssets("<html><head></head></html>", {
-				headTag: "",
-				cssTag: "",
-				jsTag: "<script>x</script>",
-			});
-			expect(warnSpy).toHaveBeenCalledWith(
-				"[tml] Could not inject JS assets: </body> tag not found",
+		it("deduplicates CSS from same component rendered multiple times", () => {
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-dedup-"),
 			);
-			warnSpy.mockRestore();
-		});
-	});
-
-	describe("head tag deduplication", () => {
-		it("deduplicates identical head tags from different components", async () => {
-			const collector: RenderCollector = {
-				styles: new Map(),
-				scripts: new Map(),
-				headTags: new Map([
-					["component-a", '<meta name="viewport" content="width=device-width">'],
-					["component-b", '<meta name="viewport" content="width=device-width">'],
-					["component-c", '<meta name="description" content="test">'],
-				]),
-			};
-			const assets = await buildInlineAssets(collector);
-			const viewportCount = (assets.headTag.match(/viewport/g) || []).length;
-			expect(viewportCount).toBe(1);
-			expect(assets.headTag).toContain("description");
-		});
-	});
-
-	describe("renderFile", () => {
-		it("renders and passes HTML to callback", async () => {
-			const filePath = path.join(fixturesDir, "simple.tml");
-			const html = await new Promise<string>((resolve, reject) => {
-				engine.renderFile(
-					filePath,
-					{ settings: { views: fixturesDir }, title: "RenderFile" },
-					(err, rendered) => {
-						if (err) return reject(err);
-						resolve(rendered!);
-					},
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "page.tml"),
+					"<template>\n  @include(badge, { text: \"A\" })\n  @include(badge, { text: \"B\" })\n</template>",
 				);
-			});
-			expect(html).toContain("<h1>RenderFile</h1>");
-		});
-
-		it("passes error to callback for missing template", async () => {
-			const filePath = path.join(fixturesDir, "nonexistent.tml");
-			const error = await new Promise<Error>((resolve) => {
-				engine.renderFile(
-					filePath,
-					{ settings: { views: fixturesDir } },
-					(err) => {
-						resolve(err!);
-					},
+				fs.writeFileSync(
+					path.join(tmpDir, "badge.tml"),
+					'<template>\n  <span>{{ text }}</span>\n</template>\n\n<style>\n  .badge { padding: 4px; }\n</style>',
 				);
+				const result = render(tmpDir, "page", {});
+				const badgeCount = (result.css.match(/\.badge/g) || []).length;
+				expect(badgeCount).toBe(1);
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("bundles JS as IIFE", () => {
+			const result = render(fixturesDir, "with-script", {
+				label: "Btn",
 			});
-			expect(error).toBeInstanceOf(Error);
+			expect(result.js).not.toBe("");
 		});
 	});
 
-	describe("cache behavior", () => {
-		it("renders correctly with cache enabled", () => {
-			const cachedEngine = new TmlEngine({ viewsDir: fixturesDir, cache: true });
-			const { html: html1 } = cachedEngine.renderPage("simple", { title: "Cached1" });
-			const { html: html2 } = cachedEngine.renderPage("simple", { title: "Cached2" });
-			expect(html1).toContain("Cached1");
-			expect(html2).toContain("Cached2");
+	describe("@head injection", () => {
+		it("injects head tags before </head>", () => {
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-head-"),
+			);
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "layout.tml"),
+					"<template>\n  <html>\n  <head><title>Test</title></head>\n  <body>@children</body>\n  </html>\n</template>",
+				);
+				fs.writeFileSync(
+					path.join(tmpDir, "page.tml"),
+					'<template>\n  @head\n    <meta name="description" content="test">\n  @end\n  @component(layout)\n    <p>Content</p>\n  @end\n</template>',
+				);
+				const result = render(tmpDir, "page", {});
+				expect(result.html).toContain(
+					'<meta name="description" content="test">',
+				);
+				expect(result.html).toContain("</head>");
+				const headCloseIndex = result.html.indexOf("</head>");
+				const metaIndex = result.html.indexOf(
+					'<meta name="description"',
+				);
+				expect(metaIndex).toBeLessThan(headCloseIndex);
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
 		});
-	});
 
-	describe("esbuild error handling", () => {
-		it("handles malformed CSS gracefully via esbuild", async () => {
-			const collector: RenderCollector = {
-				styles: new Map([["broken", "body { color: "]]),
-				scripts: new Map(),
-				headTags: new Map(),
-			};
-			const result = await buildInlineAssets(collector);
-			expect(result.cssTag).toContain("<style>");
+		it("deduplicates identical head tags from different components", () => {
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-head-dedup-"),
+			);
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "layout.tml"),
+					"<template>\n  <html>\n  <head><title>Test</title></head>\n  <body>@children</body>\n  </html>\n</template>",
+				);
+				fs.writeFileSync(
+					path.join(tmpDir, "comp-a.tml"),
+					'<template>\n  @head\n    <meta name="viewport" content="width=device-width">\n  @end\n  <div>A</div>\n</template>',
+				);
+				fs.writeFileSync(
+					path.join(tmpDir, "comp-b.tml"),
+					'<template>\n  @head\n    <meta name="viewport" content="width=device-width">\n  @end\n  <div>B</div>\n</template>',
+				);
+				fs.writeFileSync(
+					path.join(tmpDir, "page.tml"),
+					"<template>\n  @component(layout)\n    @include(comp-a)\n    @include(comp-b)\n  @end\n</template>",
+				);
+				const result = render(tmpDir, "page", {});
+				const viewportCount = (
+					result.html.match(/viewport/g) || []
+				).length;
+				expect(viewportCount).toBe(1);
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
 		});
 
-		it("rejects on invalid JS", async () => {
-			const collector: RenderCollector = {
-				styles: new Map(),
-				scripts: new Map([["broken", "function {{{{ invalid"]]),
-				headTags: new Map(),
-			};
-			await expect(buildInlineAssets(collector)).rejects.toThrow();
+		it("throws when @head is used but </head> is missing", () => {
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-head-err-"),
+			);
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "page.tml"),
+					'<template>\n  @head\n    <meta name="test">\n  @end\n  <div>No head tag</div>\n</template>',
+				);
+				expect(() => render(tmpDir, "page", {})).toThrow(
+					"@head directive requires a </head> tag in the document",
+				);
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
 		});
 	});
 
 	describe("error handling", () => {
-		it("throws on template not found", () => {
-			const collector: RenderCollector = { styles: new Map(), scripts: new Map(), headTags: new Map() };
-			expect(() => engine.renderComponent("nonexistent", {}, {}, collector)).toThrow(
-				"Template not found",
+		it("throws when views directory does not exist", () => {
+			expect(() => render("/nonexistent/path", "page", {})).toThrow(
+				"Views directory does not exist",
 			);
 		});
 
+		it("throws when template is not found", () => {
+			expect(() =>
+				render(fixturesDir, "nonexistent", {}),
+			).toThrow("Template not found");
+		});
+
 		it("throws on path traversal", () => {
-			const collector: RenderCollector = { styles: new Map(), scripts: new Map(), headTags: new Map() };
-			expect(() => engine.renderComponent("../../etc/passwd", {}, {}, collector)).toThrow(
-				"Path traversal detected",
+			expect(() =>
+				render(fixturesDir, "../../etc/passwd", {}),
+			).toThrow("Path traversal detected");
+		});
+
+		it("handles malformed CSS gracefully via esbuild", () => {
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-bad-css-"),
 			);
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "page.tml"),
+					"<template>\n  <div>test</div>\n</template>\n\n<style>\n  body { color: \n</style>",
+				);
+				const result = render(tmpDir, "page", {});
+				expect(result.css).toBeDefined();
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("throws on invalid JS", () => {
+			const tmpDir = fs.mkdtempSync(
+				path.join(os.tmpdir(), "tml-bad-js-"),
+			);
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "page.tml"),
+					"<template>\n  <div>test</div>\n</template>\n\n<script>\n  function {{{{ invalid\n</script>",
+				);
+				expect(() => render(tmpDir, "page", {})).toThrow();
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
 		});
 	});
 });

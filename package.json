@@ -1,5 +1,5 @@
 {
-  "name": "tml-engine",
+  "name": "tml",
   "version": "0.3.1",
   "description": "Template Markup Language — Vue SFC-inspired, server-side template engine with component system",
   "type": "module",
@@ -9,10 +9,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./express": {
-      "types": "./dist/express.d.ts",
-      "default": "./dist/express.js"
     }
   },
   "files": [
@@ -36,7 +32,6 @@
     "server-side-rendering",
     "ssr",
     "components",
-    "express",
     "vue-sfc",
     "html-template"
   ],
@@ -52,18 +47,8 @@
     "node": ">=18.0.0"
   },
   "license": "MIT",
-  "peerDependencies": {
-    "express": ">=4.0.0"
-  },
-  "peerDependenciesMeta": {
-    "express": {
-      "optional": true
-    }
-  },
   "devDependencies": {
-    "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
-    "express": "^5.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },

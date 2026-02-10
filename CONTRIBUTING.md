@@ -1,4 +1,4 @@
-# Contributing to TML Engine
+# Contributing to TML
 
 ## Prerequisites
 
@@ -48,21 +48,19 @@ npm run check        # Run Biome lint + format (auto-fix)
 ```
 src/
   index.ts          # Public API exports
-  engine.ts         # TmlEngine class, asset building/caching, asset injection
-  express.ts        # Express view engine adapter (createViewEngine)
+  engine.ts         # render() function, head injection, CSS/JS processing
   compiler.ts       # Template-to-function compiler (directives, interpolation)
   parser.ts         # SFC parser (extracts <template>, <style>, <script>)
-  helpers.ts        # HTML escaping, path safety, render data extraction
+  helpers.ts        # HTML escaping, path safety
   types.ts          # Shared TypeScript types and interfaces
 test/
   fixtures/         # Minimal .tml files for integration tests
-  helpers.test.ts   # escapeHtml, safePath, extractRenderData tests
+  helpers.test.ts   # escapeHtml, safePath tests
   parser.test.ts    # SFC parser tests
   compiler.test.ts  # Compiler directive and interpolation tests
-  engine.test.ts    # TmlEngine integration tests
-  express.test.ts   # Express adapter (createViewEngine) tests
+  engine.test.ts    # render() integration tests
 example/
-  app.ts            # Programmatic demo script
+  app.ts            # Demo script (prints HTML/CSS/JS to stdout)
   views/            # Example .tml templates
 ```
 
