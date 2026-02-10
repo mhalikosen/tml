@@ -59,6 +59,8 @@ TML lets you write each component as a single `.tml` file containing `<template>
 - **XSS protection** - all `{{ }}` output is HTML-escaped by default
 - **Path traversal protection** - template paths are validated against the views directory
 - **Circular reference detection** - render depth limit prevents infinite component recursion
+- **Views directory validation** - `configure()` throws a descriptive error if the directory does not exist
+- **Symlink loop protection** - directory scanning detects and skips symlink cycles
 - **TypeScript** - fully typed with exported type definitions
 
 ---
@@ -609,7 +611,7 @@ TML automatically handles CSS and JS assets:
 3. **CSS Minification** - All collected CSS is concatenated and minified using esbuild's CSS transform
 4. **JS Bundling** - Each component's JS is bundled independently as an IIFE using esbuild, then concatenated
 5. **Injection** - The minified CSS is injected as `<style>` before `</head>`, the bundled JS as `<script>` before `</body>`
-6. **Caching** - `buildInlineAssets()` caches results by collector fingerprint. Identical collector contents return cached results without calling esbuild again. Call `clearAssetCache()` to invalidate.
+6. **Caching** - `buildInlineAssets()` caches results by collector fingerprint (up to 100 entries, FIFO eviction). Identical collector contents return cached results without calling esbuild again. Call `clearAssetCache()` to invalidate.
 
 ### Custom asset handling
 
@@ -933,7 +935,7 @@ const engine = new TmlEngine({
 
 ### Views Directory
 
-The views directory is scanned recursively on `configure()`. All `.tml` files are parsed and their CSS/JS are registered. Template paths in directives are relative to the views directory:
+The views directory is scanned recursively on `configure()`. If the directory does not exist, a descriptive error is thrown. Symlink loops within the directory are detected and skipped. All `.tml` files are parsed and their CSS/JS are registered. Template paths in directives are relative to the views directory:
 
 ```
 views/
@@ -951,7 +953,7 @@ npm test            # Run all tests once
 npm run test:watch  # Run tests in watch mode
 ```
 
-Tests use [vitest](https://vitest.dev/) and cover helpers, parser, compiler, and engine integration.
+Tests use [vitest](https://vitest.dev/) and cover helpers, parser, compiler, engine integration, and the Express adapter.
 
 ---
 
@@ -972,6 +974,7 @@ test/
   parser.test.ts    # SFC parser tests
   compiler.test.ts  # Compiler directive and interpolation tests
   engine.test.ts    # TmlEngine integration tests
+  express.test.ts   # Express adapter (createViewEngine) tests
 example/
   app.ts            # Programmatic demo script (prints HTML to stdout)
   views/            # Example .tml templates

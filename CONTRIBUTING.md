@@ -60,6 +60,7 @@ test/
   parser.test.ts    # SFC parser tests
   compiler.test.ts  # Compiler directive and interpolation tests
   engine.test.ts    # TmlEngine integration tests
+  express.test.ts   # Express adapter (createViewEngine) tests
 example/
   app.ts            # Programmatic demo script
   views/            # Example .tml templates
