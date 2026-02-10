@@ -29,14 +29,13 @@ TML lets you write each component as a single `.tml` file containing `<template>
 - [Asset Pipeline](#asset-pipeline)
 - [XSS Protection](#xss-protection)
 - [Express Integration](#express-integration)
-  - [Auto-discovery (__express)](#auto-discovery-__express)
-  - [createViewEngine](#createviewengine)
 - [Programmatic API](#programmatic-api)
   - [TmlEngine](#tmlengine)
   - [Standalone Functions](#standalone-functions)
 - [TypeScript Types](#typescript-types)
 - [Error Handling](#error-handling)
 - [Configuration](#configuration)
+- [Testing](#testing)
 - [Project Structure](#project-structure)
 - [License](#license)
 
@@ -51,8 +50,11 @@ TML lets you write each component as a single `.tml` file containing `<template>
 - **Interpolation** - `{{ escaped }}` and `{{{ raw }}}` expressions with full JavaScript support
 - **Inline JavaScript** - `<% ... %>` blocks for complex logic within templates
 - **Automatic asset collection** - CSS and JS from only the rendered components are collected and injected
+- **Asset build caching** - `buildInlineAssets()` caches results by collector fingerprint, avoiding redundant esbuild calls
+- **Head tag deduplication** - identical `@head` content from different components is deduplicated
+- **Injection point warnings** - `console.warn` when `</head>` or `</body>` tags are missing but assets need injection
 - **esbuild-powered** - CSS minification and JS bundling/IIFE-wrapping via esbuild
-- **Express integration** - works as an Express view engine out of the box
+- **Express integration** - works as an Express view engine via `createViewEngine` from `tml-engine/express`
 - **Framework-agnostic core** - `TmlEngine` class can be used without Express
 - **XSS protection** - all `{{ }}` output is HTML-escaped by default
 - **Path traversal protection** - template paths are validated against the views directory
@@ -75,7 +77,26 @@ Express is an optional peer dependency - TML works without it if you use the pro
 
 ## Quick Start
 
-### 1. Set up Express
+### Programmatic API
+
+```typescript
+import path from "node:path";
+import { TmlEngine, buildInlineAssets, injectAssets } from "tml-engine";
+
+const engine = new TmlEngine({
+  viewsDir: path.resolve("views"),
+});
+
+const { html, collector } = engine.renderPage("pages/home", {
+  title: "Hello",
+  items: ["a", "b", "c"],
+});
+
+const assets = await buildInlineAssets(collector);
+const finalHtml = injectAssets(html, assets);
+```
+
+### Express Integration
 
 ```typescript
 import path from "node:path";
@@ -95,7 +116,6 @@ app.get("/", (_req, res) => {
     items: [
       { name: "Alpha", active: true },
       { name: "Beta", active: false },
-      { name: "Gamma", active: true },
     ],
   });
 });
@@ -103,7 +123,7 @@ app.get("/", (_req, res) => {
 app.listen(3000);
 ```
 
-### 2. Create a layout (`views/layouts/main.tml`)
+### Create a layout (`views/layouts/main.tml`)
 
 ```html
 <template>
@@ -111,24 +131,16 @@ app.listen(3000);
   <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
   </head>
   <body>
-    @include(components/header)
     @children
-    @include(components/footer)
   </body>
   </html>
 </template>
-
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; line-height: 1.6; }
-</style>
 ```
 
-### 3. Create a page (`views/pages/home.tml`)
+### Create a page (`views/pages/home.tml`)
 
 ```html
 <template>
@@ -160,7 +172,7 @@ app.listen(3000);
 
 When rendered, TML will:
 1. Compile and render the page template with the provided data
-2. Collect CSS from all rendered components (layout, header, footer, page)
+2. Collect CSS from all rendered components (layout, page)
 3. Minify the CSS via esbuild and inject it as an inline `<style>` tag before `</head>`
 4. Bundle/minify any `<script>` blocks and inject them before `</body>`
 
@@ -383,7 +395,7 @@ Injects content into the document's `<head>` tag. Useful for per-page meta tags,
 @end
 ```
 
-The content is collected during render and inserted before `</head>` in the final HTML. Multiple `@head` blocks from different components are concatenated.
+The content is collected during render and inserted before `</head>` in the final HTML. Multiple `@head` blocks from different components are concatenated. Identical `@head` content from different components is deduplicated by content.
 
 ---
 
@@ -490,9 +502,7 @@ Layouts are just components. A layout defines the HTML skeleton and uses `@child
     <title>{{ title }}</title>
   </head>
   <body>
-    @include(components/header)
     @children
-    @include(components/footer)
   </body>
   </html>
 </template>
@@ -584,7 +594,9 @@ The `@head` directive lets any component contribute to the document's `<head>`:
 </template>
 ```
 
-Head tags from all rendered components are collected and injected before the `</head>` closing tag. This means a page component can set the page title and meta tags, while the layout provides the base `<head>` structure.
+Head tags from all rendered components are collected and injected before the `</head>` closing tag. Identical `@head` content from different components is automatically deduplicated.
+
+If the HTML does not contain a `</head>` tag, a `console.warn` is emitted to help with debugging.
 
 ---
 
@@ -597,6 +609,7 @@ TML automatically handles CSS and JS assets:
 3. **CSS Minification** - All collected CSS is concatenated and minified using esbuild's CSS transform
 4. **JS Bundling** - Each component's JS is bundled independently as an IIFE using esbuild, then concatenated
 5. **Injection** - The minified CSS is injected as `<style>` before `</head>`, the bundled JS as `<script>` before `</body>`
+6. **Caching** - `buildInlineAssets()` caches results by collector fingerprint. Identical collector contents return cached results without calling esbuild again. Call `clearAssetCache()` to invalidate.
 
 ### Custom asset handling
 
@@ -668,31 +681,9 @@ Use `{{{ }}}` (triple braces) only for trusted, pre-sanitized HTML content:
 
 ## Express Integration
 
-### Auto-discovery (`__express`)
-
-The simplest Express setup. TML reads the views directory and cache settings from Express:
-
-```typescript
-import express from "express";
-import { __express } from "tml-engine";
-
-const app = express();
-
-app.engine("tml", __express);
-app.set("view engine", "tml");
-app.set("views", path.resolve("views"));
-// Optional: app.set("view cache", true);
-
-app.get("/", (_req, res) => {
-  res.render("pages/home", { title: "Hello" });
-});
-```
-
-The `__express` export is a bound `renderFile` method from a default `TmlEngine` singleton. It auto-configures from `app.set("views")` and `app.set("view cache")` on the first render call.
-
 ### `createViewEngine`
 
-For more control, import `createViewEngine` from the `/express` subpath:
+Import `createViewEngine` from the `/express` subpath:
 
 ```typescript
 import { createViewEngine } from "tml-engine/express";
@@ -710,7 +701,7 @@ app.engine(
 );
 ```
 
-This creates a dedicated `TmlEngine` instance (separate from the default singleton).
+This creates a dedicated `TmlEngine` instance.
 
 #### `TmlExpressOptions`
 
@@ -763,7 +754,7 @@ If a config is provided, `configure()` is called immediately, scanning the views
 | `renderPage(path, data?, context?)` | `RenderResult` | Render a page template. Returns `{ html, collector }` |
 | `renderFile(filePath, options, callback)` | `Promise<void>` | Express-compatible render method. Builds and injects assets automatically |
 | `renderComponent(path, data, context, collector, children?)` | `string` | Render a single component. Low-level - prefer `renderPage` |
-| `clearCache()` | `void` | Clear compiled template and parsed component caches |
+| `clearCache()` | `void` | Clear compiled template, parsed component, and asset build caches |
 | `getCSS(componentPath)` | `string \| undefined` | Get the raw CSS for a specific component |
 | `getJS(componentPath)` | `string \| undefined` | Get the raw JS for a specific component |
 | `getAllCSS()` | `Map<string, string>` | Get all registered CSS (component path -> CSS string) |
@@ -771,36 +762,24 @@ If a config is provided, `configure()` is called immediately, scanning the views
 
 ### Standalone Functions
 
-These are also available as top-level exports bound to a default singleton engine:
-
-```typescript
-import {
-  configure,
-  renderPage,
-  renderFile,
-  renderComponent,
-  clearCache,
-  getCSS,
-  getJS,
-  getAllCSS,
-  getAllJS,
-  buildInlineAssets,
-  injectAssets,
-} from "tml-engine";
-```
-
 #### `buildInlineAssets(collector: RenderCollector): Promise<AssetTags>`
 
 Takes a render collector and produces minified/bundled asset tags:
 - Concatenates and minifies all CSS via esbuild
 - Bundles each component's JS as an IIFE via esbuild
-- Joins head tags
+- Joins and deduplicates head tags
+- Results are cached by collector fingerprint - identical collectors return cached results
 
 #### `injectAssets(html: string, assets: AssetTags): string`
 
 Injects asset tags into the HTML string:
 - `assets.headTag` and `assets.cssTag` are injected before `</head>`
 - `assets.jsTag` is injected before `</body>`
+- Emits `console.warn` if injection points are missing but assets exist
+
+#### `clearAssetCache(): void`
+
+Clears the module-level asset build cache. Also called by `TmlEngine.clearCache()`.
 
 ---
 
@@ -958,10 +937,21 @@ The views directory is scanned recursively on `configure()`. All `.tml` files ar
 
 ```
 views/
-  layouts/main.tml      → path: "layouts/main"
-  components/card.tml   → path: "components/card"
-  pages/home.tml        → path: "pages/home"
+  layouts/main.tml      -> path: "layouts/main"
+  components/card.tml   -> path: "components/card"
+  pages/home.tml        -> path: "pages/home"
 ```
+
+---
+
+## Testing
+
+```bash
+npm test            # Run all tests once
+npm run test:watch  # Run tests in watch mode
+```
+
+Tests use [vitest](https://vitest.dev/) and cover helpers, parser, compiler, and engine integration.
 
 ---
 
@@ -969,15 +959,21 @@ views/
 
 ```
 src/
-  index.ts          # Public API exports and default engine singleton
-  engine.ts         # TmlEngine class, asset building, asset injection
+  index.ts          # Public API exports
+  engine.ts         # TmlEngine class, asset building/caching, asset injection
   express.ts        # Express view engine adapter (createViewEngine)
   compiler.ts       # Template-to-function compiler (directives, interpolation)
   parser.ts         # SFC parser (extracts <template>, <style>, <script>)
   helpers.ts        # HTML escaping, path safety, render data extraction
   types.ts          # Shared TypeScript types and interfaces
+test/
+  fixtures/         # Minimal .tml files for integration tests
+  helpers.test.ts   # escapeHtml, safePath, extractRenderData tests
+  parser.test.ts    # SFC parser tests
+  compiler.test.ts  # Compiler directive and interpolation tests
+  engine.test.ts    # TmlEngine integration tests
 example/
-  app.ts            # Express demo app
+  app.ts            # Programmatic demo script (prints HTML to stdout)
   views/            # Example .tml templates
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "tml-engine",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Template Markup Language — Vue SFC-inspired, server-side template engine with component system",
   "type": "module",
   "main": "dist/index.js",

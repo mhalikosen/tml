@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-02-10
+
+### Added
+
+- vitest test suite with comprehensive coverage for helpers, parser, compiler, and engine
+- Asset build caching in `buildInlineAssets()` keyed by collector fingerprint
+- `clearAssetCache()` export to invalidate asset build cache
+- Head tag content deduplication in `buildInlineAssets()`
+- `console.warn` when `</head>` or `</body>` injection points are missing
+
+### Changed
+
+- Example app is now a programmatic Node.js script (no Express dependency, prints HTML to stdout and exits)
+- `TmlEngine.clearCache()` now also clears the asset build cache
+
+### Removed
+
+- Default singleton exports (`configure`, `renderPage`, `renderFile`, `renderComponent`, `clearCache`, `getCSS`, `getJS`, `getAllCSS`, `getAllJS`) - use `TmlEngine` class directly
+- `__express` export - use `createViewEngine` from `tml-engine/express` instead
+- Unused `EXPR_RAW` and `EXPR_ESCAPED` regex constants from compiler
+
 ## [0.2.0] - 2025-06-15
 
 ### Added
