@@ -326,7 +326,16 @@ export async function buildInlineAssets(
 	let jsTag = "";
 
 	if (collector.headTags.size > 0) {
-		headTag = Array.from(collector.headTags.values()).join("\n");
+		const seen = new Set<string>();
+		const uniqueTags: string[] = [];
+		for (const tag of collector.headTags.values()) {
+			const trimmed = tag.trim();
+			if (trimmed && !seen.has(trimmed)) {
+				seen.add(trimmed);
+				uniqueTags.push(trimmed);
+			}
+		}
+		headTag = uniqueTags.join("\n");
 	}
 
 	if (collector.styles.size > 0) {
