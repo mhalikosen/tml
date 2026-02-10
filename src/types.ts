@@ -10,6 +10,11 @@ export interface RenderResult {
 	js: string;
 }
 
+export interface InjectAssetsOptions {
+	css?: string;
+	js?: string;
+}
+
 export type CompiledTemplate = (
 	data: Record<string, unknown>,
 	escape: (value: unknown) => string,

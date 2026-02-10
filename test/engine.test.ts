@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render } from "../src/index.ts";
+import { injectAssets, render } from "../src/index.ts";
 
 const fixturesDir = path.resolve(import.meta.dirname, "fixtures");
 
@@ -286,5 +286,56 @@ describe("render", () => {
 				fs.rmSync(tmpDir, { recursive: true, force: true });
 			}
 		});
+	});
+});
+
+describe("injectAssets", () => {
+	const baseHtml =
+		"<html><head><title>Test</title></head><body><p>Hello</p></body></html>";
+
+	it("injects CSS before </head>", () => {
+		const result = injectAssets(baseHtml, {
+			css: "<style>body{color:red}</style>",
+		});
+		expect(result).toContain(
+			"<style>body{color:red}</style>\n</head>",
+		);
+	});
+
+	it("injects JS before </body>", () => {
+		const result = injectAssets(baseHtml, {
+			js: '<script>console.log("hi")</script>',
+		});
+		expect(result).toContain(
+			'<script>console.log("hi")</script>\n</body>',
+		);
+	});
+
+	it("injects both CSS and JS together", () => {
+		const result = injectAssets(baseHtml, {
+			css: "<style>.a{}</style>",
+			js: "<script>init()</script>",
+		});
+		expect(result).toContain("<style>.a{}</style>\n</head>");
+		expect(result).toContain("<script>init()</script>\n</body>");
+	});
+
+	it("throws when injecting CSS without </head>", () => {
+		const noHead = "<html><body><p>Hello</p></body></html>";
+		expect(() =>
+			injectAssets(noHead, { css: "<style>.a{}</style>" }),
+		).toThrow("Cannot inject CSS: </head> tag not found in the document");
+	});
+
+	it("throws when injecting JS without </body>", () => {
+		const noBody = "<html><head></head><p>Hello</p></html>";
+		expect(() =>
+			injectAssets(noBody, { js: "<script>x()</script>" }),
+		).toThrow("Cannot inject JS: </body> tag not found in the document");
+	});
+
+	it("returns html as-is when options are empty", () => {
+		const result = injectAssets(baseHtml, {});
+		expect(result).toBe(baseHtml);
 	});
 });

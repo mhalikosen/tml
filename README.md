@@ -49,6 +49,7 @@ TML lets you write each component as a single `.tml` file containing `<template>
 - **Head tag deduplication** - identical `@head` content from different components is deduplicated
 - **esbuild-powered** - CSS minification and JS bundling/IIFE-wrapping via esbuild (sync)
 - **Single function API** - one `render()` call returns `{ html, css, js }`
+- **Asset injection** - `injectAssets()` helper to inject CSS/JS back into HTML
 - **Framework-agnostic** - use with any HTTP framework (Express, Fastify, Hono, etc.)
 - **XSS protection** - all `{{ }}` output is HTML-escaped by default
 - **Path traversal protection** - template paths are validated against the views directory
@@ -70,16 +71,18 @@ npm install tml
 ## Quick Start
 
 ```typescript
-import { render } from "tml";
+import { render, injectAssets } from "tml";
 
 const { html, css, js } = render("./views", "pages/home", {
   title: "Hello",
   items: ["a", "b", "c"],
 });
 
-// html → rendered HTML string (@head content injected before </head>)
-// css  → minified CSS string (collected from all rendered components, deduplicated)
-// js   → bundled+minified JS string (IIFE, collected from all rendered components)
+// Inject CSS and JS into the HTML
+const finalHtml = injectAssets(html, {
+  css: css ? `<style>${css}</style>` : undefined,
+  js: js ? `<script>${js}</script>` : undefined,
+});
 ```
 
 ### Create a layout (`views/layouts/main.tml`)
@@ -139,7 +142,7 @@ When rendered, TML will:
 
 ```typescript
 import express from "express";
-import { render } from "tml";
+import { render, injectAssets } from "tml";
 
 const app = express();
 
@@ -148,10 +151,10 @@ app.get("/", (req, res) => {
     title: "My App",
   });
 
-  // Inject CSS/JS however you prefer:
-  const finalHtml = html
-    .replace("</head>", `<style>${css}</style></head>`)
-    .replace("</body>", `<script>${js}</script></body>`);
+  const finalHtml = injectAssets(html, {
+    css: css ? `<style>${css}</style>` : undefined,
+    js: js ? `<script>${js}</script>` : undefined,
+  });
 
   res.send(finalHtml);
 });
@@ -502,14 +505,21 @@ TML automatically handles CSS and JS assets:
 5. **Returned separately** - CSS and JS are returned as separate strings in the `RenderResult`, giving you full control over how to deliver them
 
 ```typescript
+import { render, injectAssets } from "tml";
+
 const { html, css, js } = render("./views", "pages/home", data);
 
 // Inline injection
-const finalHtml = html
-  .replace("</head>", `<style>${css}</style></head>`)
-  .replace("</body>", `<script>${js}</script></body>`);
+const finalHtml = injectAssets(html, {
+  css: css ? `<style>${css}</style>` : undefined,
+  js: js ? `<script>${js}</script>` : undefined,
+});
 
-// Or serve as separate files, use a CDN, etc.
+// Or use external URLs
+const withExternalAssets = injectAssets(html, {
+  css: `<link rel="stylesheet" href="/assets/page.css">`,
+  js: `<script src="/assets/page.js"></script>`,
+});
 ```
 
 ---
@@ -566,6 +576,42 @@ const result = render(viewsDir, viewPath, data);
 - CSS/JS are returned as separate strings, not injected into the HTML
 - Component CSS/JS are deduplicated by component path
 
+### `injectAssets(html, options)`
+
+Injects CSS and JS assets into an HTML string. A convenience helper that eliminates manual `string.replace()` calls.
+
+```typescript
+import { injectAssets } from "tml";
+
+const finalHtml = injectAssets(html, {
+  css: `<style>${css}</style>`,
+  js: `<script>${js}</script>`,
+});
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `html` | `string` | The HTML string to inject assets into |
+| `options` | `InjectAssetsOptions` | Object with optional `css` and `js` strings |
+
+**Options:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `css` | `string \| undefined` | HTML string to inject before `</head>` (e.g. `<style>` or `<link>` tag) |
+| `js` | `string \| undefined` | HTML string to inject before `</body>` (e.g. `<script>` tag) |
+
+**Returns:** `string` - The HTML with assets injected.
+
+**Behavior:**
+- `css` is injected immediately before the `</head>` closing tag
+- `js` is injected immediately before the `</body>` closing tag
+- If `css` is provided but `</head>` is not found, throws an `Error`
+- If `js` is provided but `</body>` is not found, throws an `Error`
+- If neither `css` nor `js` is provided, the HTML is returned as-is
+
 ---
 
 ## TypeScript Types
@@ -573,7 +619,12 @@ const result = render(viewsDir, viewPath, data);
 All types are exported from the main entry point:
 
 ```typescript
-import type { CompiledTemplate, ParsedComponent, RenderResult } from "tml";
+import type {
+  CompiledTemplate,
+  InjectAssetsOptions,
+  ParsedComponent,
+  RenderResult,
+} from "tml";
 ```
 
 ### `RenderResult`
@@ -583,6 +634,15 @@ interface RenderResult {
   html: string;  // Rendered HTML string
   css: string;   // Minified CSS from all rendered components
   js: string;    // Bundled+minified JS from all rendered components
+}
+```
+
+### `InjectAssetsOptions`
+
+```typescript
+interface InjectAssetsOptions {
+  css?: string;  // HTML string to inject before </head>
+  js?: string;   // HTML string to inject before </body>
 }
 ```
 

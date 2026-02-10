@@ -1,3 +1,8 @@
 export { TmlCompileError, TmlRenderError } from "./compiler.ts";
-export { render } from "./engine.ts";
-export type { CompiledTemplate, ParsedComponent, RenderResult } from "./types.ts";
+export { injectAssets, render } from "./engine.ts";
+export type {
+	CompiledTemplate,
+	InjectAssetsOptions,
+	ParsedComponent,
+	RenderResult,
+} from "./types.ts";

@@ -4,7 +4,7 @@ import path from "node:path";
 import { compile, TmlCompileError, TmlRenderError } from "./compiler.ts";
 import { escapeHtml, safePath } from "./helpers.ts";
 import { parse } from "./parser.ts";
-import type { RenderResult } from "./types.ts";
+import type { InjectAssetsOptions, RenderResult } from "./types.ts";
 
 const MAX_RENDER_DEPTH = 100;
 
@@ -187,4 +187,41 @@ export function render(
 	}
 
 	return { html: finalHtml, css, js };
+}
+
+export function injectAssets(
+	html: string,
+	options: InjectAssetsOptions,
+): string {
+	let result = html;
+
+	if (options.css) {
+		const headCloseIndex = result.indexOf("</head>");
+		if (headCloseIndex === -1) {
+			throw new Error(
+				"Cannot inject CSS: </head> tag not found in the document",
+			);
+		}
+		result =
+			result.slice(0, headCloseIndex) +
+			options.css +
+			"\n" +
+			result.slice(headCloseIndex);
+	}
+
+	if (options.js) {
+		const bodyCloseIndex = result.indexOf("</body>");
+		if (bodyCloseIndex === -1) {
+			throw new Error(
+				"Cannot inject JS: </body> tag not found in the document",
+			);
+		}
+		result =
+			result.slice(0, bodyCloseIndex) +
+			options.js +
+			"\n" +
+			result.slice(bodyCloseIndex);
+	}
+
+	return result;
 }
