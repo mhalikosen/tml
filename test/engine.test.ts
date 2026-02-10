@@ -255,6 +255,68 @@ describe("TmlEngine", () => {
 		});
 	});
 
+	describe("renderFile", () => {
+		it("renders and passes HTML to callback", async () => {
+			const filePath = path.join(fixturesDir, "simple.tml");
+			const html = await new Promise<string>((resolve, reject) => {
+				engine.renderFile(
+					filePath,
+					{ settings: { views: fixturesDir }, title: "RenderFile" },
+					(err, rendered) => {
+						if (err) return reject(err);
+						resolve(rendered!);
+					},
+				);
+			});
+			expect(html).toContain("<h1>RenderFile</h1>");
+		});
+
+		it("passes error to callback for missing template", async () => {
+			const filePath = path.join(fixturesDir, "nonexistent.tml");
+			const error = await new Promise<Error>((resolve) => {
+				engine.renderFile(
+					filePath,
+					{ settings: { views: fixturesDir } },
+					(err) => {
+						resolve(err!);
+					},
+				);
+			});
+			expect(error).toBeInstanceOf(Error);
+		});
+	});
+
+	describe("cache behavior", () => {
+		it("renders correctly with cache enabled", () => {
+			const cachedEngine = new TmlEngine({ viewsDir: fixturesDir, cache: true });
+			const { html: html1 } = cachedEngine.renderPage("simple", { title: "Cached1" });
+			const { html: html2 } = cachedEngine.renderPage("simple", { title: "Cached2" });
+			expect(html1).toContain("Cached1");
+			expect(html2).toContain("Cached2");
+		});
+	});
+
+	describe("esbuild error handling", () => {
+		it("handles malformed CSS gracefully via esbuild", async () => {
+			const collector: RenderCollector = {
+				styles: new Map([["broken", "body { color: "]]),
+				scripts: new Map(),
+				headTags: new Map(),
+			};
+			const result = await buildInlineAssets(collector);
+			expect(result.cssTag).toContain("<style>");
+		});
+
+		it("rejects on invalid JS", async () => {
+			const collector: RenderCollector = {
+				styles: new Map(),
+				scripts: new Map([["broken", "function {{{{ invalid"]]),
+				headTags: new Map(),
+			};
+			await expect(buildInlineAssets(collector)).rejects.toThrow();
+		});
+	});
+
 	describe("error handling", () => {
 		it("throws on template not found", () => {
 			const collector: RenderCollector = { styles: new Map(), scripts: new Map(), headTags: new Map() };
