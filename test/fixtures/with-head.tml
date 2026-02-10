@@ -1,6 +1,0 @@
-<template>
-  @head
-    <meta name="description" content="{{ description }}">
-  @end
-  <div>{{ title }}</div>
-</template>

@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-02-10
+
+### Changed
+
+- **BREAKING:** Replace `TmlEngine` class with a single sync `render(viewsDir, viewPath, data)` function returning `{ html, css, js }`
+- **BREAKING:** CSS and JS are returned as separate strings instead of being injected into HTML
+- **BREAKING:** `@head` without `</head>` now throws `TmlRenderError` instead of emitting `console.warn`
+- **BREAKING:** Package renamed from `tml-engine` to `tml`
+- All esbuild calls are now synchronous (`transformSync`/`buildSync`)
+
+### Removed
+
+- `TmlEngine` class and all its methods (`configure`, `renderPage`, `renderFile`, `renderComponent`, `clearCache`, `getCSS`, `getJS`, `getAllCSS`, `getAllJS`)
+- Express adapter (`createViewEngine` from `tml-engine/express`)
+- All cache mechanisms (template cache, parsed cache, asset cache)
+- `buildInlineAssets`, `injectAssets`, `clearAssetCache` functions
+- `extractRenderData` helper
+- Types: `RenderCollector`, `TmlEngineConfig`, `TemplateCache`, `AssetTags`, `ExpressViewEngine`
+- `express` peer dependency and `./express` export
+
 ## [0.3.1] - 2026-02-10
 
 ### Fixed
