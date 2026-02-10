@@ -1,0 +1,7 @@
+<template>
+  <div class="styled">{{ message }}</div>
+</template>
+
+<style>
+  .styled { color: red; font-size: 16px; }
+</style>

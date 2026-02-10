@@ -1,0 +1,13 @@
+<template>
+  <button id="btn">{{ label }}</button>
+</template>
+
+<style>
+  #btn { padding: 8px 16px; }
+</style>
+
+<script>
+  document.getElementById("btn").addEventListener("click", () => {
+    console.log("clicked");
+  });
+</script>

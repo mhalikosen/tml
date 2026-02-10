@@ -1,0 +1,10 @@
+<template>
+  <div class="card">
+    <h3>{{ title }}</h3>
+    @children
+  </div>
+</template>
+
+<style>
+  .card { border: 1px solid #ccc; padding: 1rem; }
+</style>
