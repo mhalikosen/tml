@@ -16,14 +16,15 @@ import type {
 
 const MAX_RENDER_DEPTH = 100;
 
+const ASSET_CACHE_MAX_SIZE = 100;
 const assetCache = new Map<string, AssetTags>();
 
 function buildAssetCacheKey(collector: RenderCollector): string {
-	const parts: string[] = [];
-	for (const [key, value] of collector.styles) parts.push(`s:${key}:${value}`);
-	for (const [key, value] of collector.scripts) parts.push(`j:${key}:${value}`);
-	for (const [key, value] of collector.headTags) parts.push(`h:${key}:${value}`);
-	return parts.join("|");
+	return JSON.stringify([
+		[...collector.styles],
+		[...collector.scripts],
+		[...collector.headTags],
+	]);
 }
 
 export function clearAssetCache(): void {
@@ -385,6 +386,10 @@ export async function buildInlineAssets(
 	}
 
 	const result = { headTag, cssTag, jsTag };
+	if (assetCache.size >= ASSET_CACHE_MAX_SIZE) {
+		const firstKey = assetCache.keys().next().value!;
+		assetCache.delete(firstKey);
+	}
 	assetCache.set(cacheKey, result);
 	return result;
 }

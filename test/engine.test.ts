@@ -150,6 +150,43 @@ describe("TmlEngine", () => {
 		});
 	});
 
+	describe("asset cache bounds", () => {
+		it("evicts oldest entries when cache exceeds max size", async () => {
+			for (let i = 0; i < 110; i++) {
+				const collector: RenderCollector = {
+					styles: new Map([[`comp-${i}`, `.c${i} { color: red; }`]]),
+					scripts: new Map(),
+					headTags: new Map(),
+				};
+				await buildInlineAssets(collector);
+			}
+			const lastCollector: RenderCollector = {
+				styles: new Map([["comp-109", ".c109 { color: red; }"]]),
+				scripts: new Map(),
+				headTags: new Map(),
+			};
+			const result = await buildInlineAssets(lastCollector);
+			expect(result.cssTag).toContain("<style>");
+		});
+
+		it("produces different cache keys for collectors with ambiguous separators", async () => {
+			const collectorA: RenderCollector = {
+				styles: new Map([["a:b", "x"]]),
+				scripts: new Map(),
+				headTags: new Map(),
+			};
+			const collectorB: RenderCollector = {
+				styles: new Map([["a", "b:x"]]),
+				scripts: new Map(),
+				headTags: new Map(),
+			};
+			const resultA = await buildInlineAssets(collectorA);
+			clearAssetCache();
+			const resultB = await buildInlineAssets(collectorB);
+			expect(resultA.cssTag).not.toBe(resultB.cssTag);
+		});
+	});
+
 	describe("clearAssetCache", () => {
 		it("invalidates cached assets", async () => {
 			const { collector } = engine.renderPage("with-style", { message: "Hi" });
