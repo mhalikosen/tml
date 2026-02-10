@@ -384,12 +384,16 @@ export function injectAssets(html: string, assets: AssetTags): string {
 		if (headInsert) {
 			result = `${result.slice(0, headCloseIndex)}${headInsert}${result.slice(headCloseIndex)}`;
 		}
+	} else if (assets.headTag || assets.cssTag) {
+		console.warn("[tml] Could not inject head/CSS assets: </head> tag not found");
 	}
 
 	if (assets.jsTag) {
 		const bodyCloseIndex = result.indexOf("</body>");
 		if (bodyCloseIndex !== -1) {
 			result = `${result.slice(0, bodyCloseIndex)}${assets.jsTag}\n${result.slice(bodyCloseIndex)}`;
+		} else {
+			console.warn("[tml] Could not inject JS assets: </body> tag not found");
 		}
 	}
 
