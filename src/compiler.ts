@@ -38,9 +38,6 @@ const DIRECTIVE_PROVIDE = /^@provide\((\w+)\s*,\s*(.+)\)$/;
 const DIRECTIVE_HEAD = /^@head$/;
 const INLINE_JS = /^<%(.+)%>$/;
 
-const EXPR_RAW = /\{\{\{([\s\S]+?)\}\}\}/g;
-const EXPR_ESCAPED = /\{\{([\s\S]+?)\}\}/g;
-
 type Segment =
 	| { type: "text"; value: string }
 	| { type: "escaped"; value: string }
