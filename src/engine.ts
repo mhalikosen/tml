@@ -99,7 +99,7 @@ export class TmlEngine {
 	): string {
 		if (this.renderDepth >= MAX_RENDER_DEPTH) {
 			throw new TmlRenderError(
-				`Maximum render depth (${MAX_RENDER_DEPTH}) exceeded — possible circular component reference`,
+				`Maximum render depth (${MAX_RENDER_DEPTH}) exceeded - possible circular component reference`,
 				componentPath,
 				0,
 			);

@@ -3,9 +3,9 @@
 [![npm version](https://img.shields.io/npm/v/tml-engine.svg)](https://www.npmjs.com/package/tml-engine)
 [![license](https://img.shields.io/npm/l/tml-engine.svg)](https://github.com/mhalikosen/tml/blob/main/LICENSE)
 
-**Template Markup Language** — a Vue SFC-inspired, server-side template engine with a full component system for Node.js.
+**Template Markup Language** - a Vue SFC-inspired, server-side template engine with a full component system for Node.js.
 
-TML lets you write each component as a single `.tml` file containing `<template>`, `<style>`, and `<script>` blocks — just like Vue Single File Components, but rendered entirely on the server. CSS and JS are collected only from the components that actually render on a given page, then minified and injected automatically.
+TML lets you write each component as a single `.tml` file containing `<template>`, `<style>`, and `<script>` blocks - just like Vue Single File Components, but rendered entirely on the server. CSS and JS are collected only from the components that actually render on a given page, then minified and injected automatically.
 
 ---
 
@@ -44,20 +44,20 @@ TML lets you write each component as a single `.tml` file containing `<template>
 
 ## Features
 
-- **Vue SFC-like syntax** — `<template>`, `<style>`, `<script>` blocks in a single `.tml` file
-- **Component system** — nested components with children (slots), includes, and layouts
-- **Context API** — `@provide` for passing data down the component tree without prop drilling
-- **Directives** — `@if` / `@elseif` / `@else`, `@each`, `@include`, `@component`, `@head`, `@children`, `@provide`
-- **Interpolation** — `{{ escaped }}` and `{{{ raw }}}` expressions with full JavaScript support
-- **Inline JavaScript** — `<% ... %>` blocks for complex logic within templates
-- **Automatic asset collection** — CSS and JS from only the rendered components are collected and injected
-- **esbuild-powered** — CSS minification and JS bundling/IIFE-wrapping via esbuild
-- **Express integration** — works as an Express view engine out of the box
-- **Framework-agnostic core** — `TmlEngine` class can be used without Express
-- **XSS protection** — all `{{ }}` output is HTML-escaped by default
-- **Path traversal protection** — template paths are validated against the views directory
-- **Circular reference detection** — render depth limit prevents infinite component recursion
-- **TypeScript** — fully typed with exported type definitions
+- **Vue SFC-like syntax** - `<template>`, `<style>`, `<script>` blocks in a single `.tml` file
+- **Component system** - nested components with children (slots), includes, and layouts
+- **Context API** - `@provide` for passing data down the component tree without prop drilling
+- **Directives** - `@if` / `@elseif` / `@else`, `@each`, `@include`, `@component`, `@head`, `@children`, `@provide`
+- **Interpolation** - `{{ escaped }}` and `{{{ raw }}}` expressions with full JavaScript support
+- **Inline JavaScript** - `<% ... %>` blocks for complex logic within templates
+- **Automatic asset collection** - CSS and JS from only the rendered components are collected and injected
+- **esbuild-powered** - CSS minification and JS bundling/IIFE-wrapping via esbuild
+- **Express integration** - works as an Express view engine out of the box
+- **Framework-agnostic core** - `TmlEngine` class can be used without Express
+- **XSS protection** - all `{{ }}` output is HTML-escaped by default
+- **Path traversal protection** - template paths are validated against the views directory
+- **Circular reference detection** - render depth limit prevents infinite component recursion
+- **TypeScript** - fully typed with exported type definitions
 
 ---
 
@@ -69,7 +69,7 @@ npm install tml-engine
 
 **Requirements**: Node.js >= 18
 
-Express is an optional peer dependency — TML works without it if you use the programmatic API.
+Express is an optional peer dependency - TML works without it if you use the programmatic API.
 
 ---
 
@@ -185,7 +185,7 @@ Every `.tml` file is a single-file component with up to three blocks:
 ```
 
 **Rules:**
-- The `<template>` block is required — its contents are compiled into a render function
+- The `<template>` block is required - its contents are compiled into a render function
 - `<style>` and `<script>` blocks are optional
 - Blocks can appear in any order
 - Only one of each block type is supported per file
@@ -261,10 +261,10 @@ Conditional rendering. The expression is evaluated as JavaScript:
 @end
 ```
 
-- `@if(expr)` — starts a conditional block
-- `@elseif(expr)` — optional, can chain multiple
-- `@else` — optional, the fallback branch
-- `@end` — required, closes the block
+- `@if(expr)` - starts a conditional block
+- `@elseif(expr)` - optional, can chain multiple
+- `@else` - optional, the fallback branch
+- `@end` - required, closes the block
 
 #### `@each` / `@end`
 
@@ -283,7 +283,7 @@ The iteration variable name is yours to choose:
 
 ```html
 @each(user of team)
-  <p>{{ user.name }} — {{ user.role }}</p>
+  <p>{{ user.name }} - {{ user.role }}</p>
 @end
 
 @each(tag of post.tags)
@@ -311,7 +311,7 @@ Renders another template inline. The included template receives the current temp
 @include(components/hero, { heading: title, subtitle: "Welcome" })
 ```
 
-Paths are relative to the views directory, without the `.tml` extension. An include does **not** support children — use `@component` for that.
+Paths are relative to the views directory, without the `.tml` extension. An include does **not** support children - use `@component` for that.
 
 #### `@component` / `@end`
 
@@ -369,7 +369,7 @@ Any nested component (at any depth) can read the value:
 <p>Locale: {{ $context.locale }}</p>
 ```
 
-Context values are immutable per render scope — a child `@provide` creates a new context for its descendants without affecting siblings.
+Context values are immutable per render scope - a child `@provide` creates a new context for its descendants without affecting siblings.
 
 #### `@head` / `@end`
 
@@ -592,11 +592,11 @@ Head tags from all rendered components are collected and injected before the `</
 
 TML automatically handles CSS and JS assets:
 
-1. **Collection** — When a component is rendered, its `<style>` and `<script>` blocks are collected into a `RenderCollector`
-2. **Deduplication** — Each component's assets are stored by component path, so a component rendered multiple times (e.g. in a loop) only contributes its assets once
-3. **CSS Minification** — All collected CSS is concatenated and minified using esbuild's CSS transform
-4. **JS Bundling** — Each component's JS is bundled independently as an IIFE using esbuild, then concatenated
-5. **Injection** — The minified CSS is injected as `<style>` before `</head>`, the bundled JS as `<script>` before `</body>`
+1. **Collection** - When a component is rendered, its `<style>` and `<script>` blocks are collected into a `RenderCollector`
+2. **Deduplication** - Each component's assets are stored by component path, so a component rendered multiple times (e.g. in a loop) only contributes its assets once
+3. **CSS Minification** - All collected CSS is concatenated and minified using esbuild's CSS transform
+4. **JS Bundling** - Each component's JS is bundled independently as an IIFE using esbuild, then concatenated
+5. **Injection** - The minified CSS is injected as `<style>` before `</head>`, the bundled JS as `<script>` before `</body>`
 
 ### Custom asset handling
 
@@ -608,9 +608,9 @@ app.engine(
   createViewEngine({
     viewsDir,
     onAssets: (collector) => {
-      // collector.styles — Map<componentPath, cssString>
-      // collector.scripts — Map<componentPath, jsString>
-      // collector.headTags — Map<componentPath, headHtml>
+      // collector.styles - Map<componentPath, cssString>
+      // collector.scripts - Map<componentPath, jsString>
+      // collector.headTags - Map<componentPath, headHtml>
 
       // Return your own asset tags
       return {
@@ -716,9 +716,9 @@ This creates a dedicated `TmlEngine` instance (separate from the default singlet
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `viewsDir` | `string` | — | **Required.** Absolute path to the views directory |
+| `viewsDir` | `string` | - | **Required.** Absolute path to the views directory |
 | `cache` | `boolean` | `true` in production | Cache compiled templates |
-| `onAssets` | `(collector: RenderCollector) => AssetTags` | — | Custom asset processing. When not provided, assets are built and injected inline automatically |
+| `onAssets` | `(collector: RenderCollector) => AssetTags` | - | Custom asset processing. When not provided, assets are built and injected inline automatically |
 
 ---
 
@@ -762,7 +762,7 @@ If a config is provided, `configure()` is called immediately, scanning the views
 | `configure(config: TmlEngineConfig)` | `void` | Set views directory and cache option. Clears all caches and scans the views directory |
 | `renderPage(path, data?, context?)` | `RenderResult` | Render a page template. Returns `{ html, collector }` |
 | `renderFile(filePath, options, callback)` | `Promise<void>` | Express-compatible render method. Builds and injects assets automatically |
-| `renderComponent(path, data, context, collector, children?)` | `string` | Render a single component. Low-level — prefer `renderPage` |
+| `renderComponent(path, data, context, collector, children?)` | `string` | Render a single component. Low-level - prefer `renderPage` |
 | `clearCache()` | `void` | Clear compiled template and parsed component caches |
 | `getCSS(componentPath)` | `string \| undefined` | Get the raw CSS for a specific component |
 | `getJS(componentPath)` | `string \| undefined` | Get the raw JS for a specific component |
@@ -896,7 +896,7 @@ try {
   engine.renderPage("pages/broken", data);
 } catch (error) {
   if (error instanceof TmlCompileError) {
-    console.error(error.message);   // "Unclosed @if block — missing @end at pages/broken:15"
+    console.error(error.message);   // "Unclosed @if block - missing @end at pages/broken:15"
     console.error(error.filePath);  // "pages/broken"
     console.error(error.line);      // 15
   }
@@ -904,11 +904,11 @@ try {
 ```
 
 Common compile errors:
-- `Unclosed @if block — missing @end`
+- `Unclosed @if block - missing @end`
 - `@else without matching @if`
 - `@elseif without matching @if`
 - `Unexpected @end without matching block`
-- `Unclosed <% block — missing %>`
+- `Unclosed <% block - missing %>`
 - `Compilation failed: ...`
 
 ### `TmlRenderError`
@@ -931,7 +931,7 @@ try {
 
 Common render errors:
 - Undefined variable access in expressions
-- `Maximum render depth (100) exceeded — possible circular component reference`
+- `Maximum render depth (100) exceeded - possible circular component reference`
 - `Template not found: ...`
 - `Path traversal detected: ...`
 

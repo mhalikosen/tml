@@ -298,7 +298,7 @@ export function compile(template: string, filePath: string): CompiledTemplate {
 
 	if (inlineJsBuffer !== null) {
 		throw new TmlCompileError(
-			"Unclosed <% block — missing %>",
+			"Unclosed <% block - missing %>",
 			filePath,
 			inlineJsStartLine,
 		);
@@ -307,7 +307,7 @@ export function compile(template: string, filePath: string): CompiledTemplate {
 	if (blockStack.length > 0) {
 		const unclosed = blockStack[blockStack.length - 1];
 		throw new TmlCompileError(
-			`Unclosed @${unclosed} block — missing @end`,
+			`Unclosed @${unclosed} block - missing @end`,
 			filePath,
 			lines.length,
 		);

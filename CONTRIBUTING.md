@@ -56,11 +56,11 @@ example/
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/):
 
-- `feat:` — new feature
-- `fix:` — bug fix
-- `refactor:` — code change that neither fixes a bug nor adds a feature
-- `chore:` — tooling, config, dependencies
-- `docs:` — documentation only
+- `feat:` - new feature
+- `fix:` - bug fix
+- `refactor:` - code change that neither fixes a bug nor adds a feature
+- `chore:` - tooling, config, dependencies
+- `docs:` - documentation only
 
 ## Pull Requests
 
