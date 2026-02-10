@@ -16,6 +16,20 @@ import type {
 
 const MAX_RENDER_DEPTH = 100;
 
+const assetCache = new Map<string, AssetTags>();
+
+function buildAssetCacheKey(collector: RenderCollector): string {
+	const parts: string[] = [];
+	for (const [key, value] of collector.styles) parts.push(`s:${key}:${value}`);
+	for (const [key, value] of collector.scripts) parts.push(`j:${key}:${value}`);
+	for (const [key, value] of collector.headTags) parts.push(`h:${key}:${value}`);
+	return parts.join("|");
+}
+
+export function clearAssetCache(): void {
+	assetCache.clear();
+}
+
 export class TmlEngine {
 	private viewsDir: string;
 	private cacheEnabled: boolean;
@@ -207,6 +221,7 @@ export class TmlEngine {
 	clearCache(): void {
 		this.templateCache.clear();
 		this.parsedCache.clear();
+		clearAssetCache();
 	}
 
 	private ensureInitialized(
@@ -321,6 +336,12 @@ export class TmlEngine {
 export async function buildInlineAssets(
 	collector: RenderCollector,
 ): Promise<AssetTags> {
+	const cacheKey = buildAssetCacheKey(collector);
+	const cached = assetCache.get(cacheKey);
+	if (cached) {
+		return cached;
+	}
+
 	let headTag = "";
 	let cssTag = "";
 	let jsTag = "";
@@ -352,7 +373,9 @@ export async function buildInlineAssets(
 		jsTag = `<script>${allJs}</script>`;
 	}
 
-	return { headTag, cssTag, jsTag };
+	const result = { headTag, cssTag, jsTag };
+	assetCache.set(cacheKey, result);
+	return result;
 }
 
 async function minifyCSSWithEsbuild(css: string): Promise<string> {

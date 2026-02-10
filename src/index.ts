@@ -1,5 +1,5 @@
 export { TmlCompileError, TmlRenderError } from "./compiler.ts";
-export { buildInlineAssets, injectAssets, TmlEngine } from "./engine.ts";
+export { buildInlineAssets, clearAssetCache, injectAssets, TmlEngine } from "./engine.ts";
 export type {
 	AssetTags,
 	CompiledTemplate,
