@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { compile } from "../src/compiler.ts";
@@ -25,6 +27,31 @@ describe("TmlEngine", () => {
 			lazyEngine.configure({ viewsDir: fixturesDir });
 			const { html } = lazyEngine.renderPage("simple", { title: "Test" });
 			expect(html).toContain("Test");
+		});
+
+		it("throws when viewsDir does not exist", () => {
+			expect(() => new TmlEngine({ viewsDir: "/nonexistent" })).toThrow(
+				"Views directory does not exist",
+			);
+		});
+	});
+
+	describe("symlink loop protection", () => {
+		it("handles symlink loop without crashing", () => {
+			const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tml-symlink-"));
+			try {
+				fs.writeFileSync(
+					path.join(tmpDir, "index.tml"),
+					"<template>\n  <p>{{ title }}</p>\n</template>",
+				);
+				fs.symlinkSync(tmpDir, path.join(tmpDir, "loop"));
+
+				const loopEngine = new TmlEngine({ viewsDir: tmpDir });
+				const { html } = loopEngine.renderPage("index", { title: "works" });
+				expect(html).toContain("works");
+			} finally {
+				fs.rmSync(tmpDir, { recursive: true, force: true });
+			}
 		});
 	});
 

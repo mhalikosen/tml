@@ -57,6 +57,11 @@ export class TmlEngine {
 
 	configure(config: TmlEngineConfig): void {
 		this.viewsDir = path.resolve(config.viewsDir);
+
+		if (!fs.existsSync(this.viewsDir)) {
+			throw new Error(`Views directory does not exist: ${this.viewsDir}`);
+		}
+
 		this.cacheEnabled = config.cache ?? false;
 
 		this.templateCache.clear();
@@ -257,16 +262,22 @@ export class TmlEngine {
 	}
 
 	private scan(): void {
-		this.scanDirectory(this.viewsDir);
+		this.scanDirectory(this.viewsDir, new Set<string>());
 		this.initialized = true;
 	}
 
-	private scanDirectory(dir: string): void {
+	private scanDirectory(dir: string, visitedPaths: Set<string>): void {
+		const realDir = fs.realpathSync(dir);
+		if (visitedPaths.has(realDir)) {
+			return;
+		}
+		visitedPaths.add(realDir);
+
 		const entries = fs.readdirSync(dir, { withFileTypes: true });
 		for (const entry of entries) {
 			const fullPath = path.join(dir, entry.name);
 			if (entry.isDirectory()) {
-				this.scanDirectory(fullPath);
+				this.scanDirectory(fullPath, visitedPaths);
 			} else if (entry.name.endsWith(".tml")) {
 				const source = fs.readFileSync(fullPath, "utf-8");
 				const parsed = parse(source);
