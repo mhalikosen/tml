@@ -1,13 +1,7 @@
 import path from "node:path";
 import { buildInlineAssets, injectAssets, TmlEngine } from "./engine.ts";
 import { extractRenderData } from "./helpers.ts";
-import type { AssetTags, RenderCollector } from "./types.ts";
-
-type ExpressViewEngine = (
-	filePath: string,
-	options: Record<string, unknown>,
-	callback: (err: Error | null, rendered?: string) => void,
-) => void;
+import type { AssetTags, ExpressViewEngine, RenderCollector } from "./types.ts";
 
 export interface TmlExpressOptions {
 	viewsDir: string;

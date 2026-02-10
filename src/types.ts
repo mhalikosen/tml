@@ -45,3 +45,9 @@ export type CompiledTemplate = (
 ) => string;
 
 export type TemplateCache = Map<string, CompiledTemplate>;
+
+export type ExpressViewEngine = (
+	filePath: string,
+	options: Record<string, unknown>,
+	callback: (err: Error | null, rendered?: string) => void,
+) => void;

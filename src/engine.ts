@@ -14,6 +14,8 @@ import type {
 	TmlEngineConfig,
 } from "./types.ts";
 
+const MAX_RENDER_DEPTH = 100;
+
 export class TmlEngine {
 	private viewsDir: string;
 	private cacheEnabled: boolean;
@@ -22,6 +24,7 @@ export class TmlEngine {
 	private parsedCache: Map<string, ParsedComponent>;
 	private cssRegistry: Map<string, string>;
 	private jsRegistry: Map<string, string>;
+	private renderDepth: number;
 
 	constructor(config?: TmlEngineConfig) {
 		this.viewsDir = "";
@@ -31,6 +34,7 @@ export class TmlEngine {
 		this.parsedCache = new Map();
 		this.cssRegistry = new Map();
 		this.jsRegistry = new Map();
+		this.renderDepth = 0;
 
 		if (config) {
 			this.configure(config);
@@ -87,6 +91,29 @@ export class TmlEngine {
 	}
 
 	renderComponent(
+		componentPath: string,
+		data: Record<string, unknown>,
+		context: Record<string, unknown>,
+		collector: RenderCollector,
+		children?: string,
+	): string {
+		if (this.renderDepth >= MAX_RENDER_DEPTH) {
+			throw new TmlRenderError(
+				`Maximum render depth (${MAX_RENDER_DEPTH}) exceeded — possible circular component reference`,
+				componentPath,
+				0,
+			);
+		}
+
+		this.renderDepth++;
+		try {
+			return this.renderComponentInner(componentPath, data, context, collector, children);
+		} finally {
+			this.renderDepth--;
+		}
+	}
+
+	private renderComponentInner(
 		componentPath: string,
 		data: Record<string, unknown>,
 		context: Record<string, unknown>,
@@ -336,6 +363,9 @@ async function bundleScript(js: string): Promise<string> {
 		minify: true,
 		platform: "browser",
 	});
+	if (!result.outputFiles?.length) {
+		throw new Error("esbuild produced no output for script bundle");
+	}
 	return result.outputFiles[0].text.trim();
 }
 
