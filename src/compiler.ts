@@ -128,6 +128,8 @@ export function compile(template: string, filePath: string): CompiledTemplate {
 	const lines = template.split("\n");
 	const blockStack: BlockType[] = [];
 	const codeParts: string[] = [];
+	let inlineJsBuffer: string[] | null = null;
+	let inlineJsStartLine = 0;
 
 	codeParts.push("var __out = '';");
 	codeParts.push(
@@ -138,6 +140,20 @@ export function compile(template: string, filePath: string): CompiledTemplate {
 		const line = lines[i];
 		const trimmed = line.trim();
 		const lineNum = i + 1;
+
+		if (inlineJsBuffer !== null) {
+			if (trimmed.endsWith("%>")) {
+				const before = trimmed.slice(0, -2).trim();
+				if (before) inlineJsBuffer.push(before);
+				codeParts.push(
+					`/* line ${inlineJsStartLine} */ ${inlineJsBuffer.join("\n")}`,
+				);
+				inlineJsBuffer = null;
+			} else {
+				inlineJsBuffer.push(line);
+			}
+			continue;
+		}
 
 		if (trimmed === "") {
 			codeParts.push("__out += '\\n';");
@@ -270,7 +286,22 @@ export function compile(template: string, filePath: string): CompiledTemplate {
 			continue;
 		}
 
+		if (trimmed.startsWith("<%")) {
+			inlineJsStartLine = lineNum;
+			const after = trimmed.slice(2).trim();
+			inlineJsBuffer = after ? [after] : [];
+			continue;
+		}
+
 		codeParts.push(compileLineWithInterpolations(line));
+	}
+
+	if (inlineJsBuffer !== null) {
+		throw new TmlCompileError(
+			"Unclosed <% block — missing %>",
+			filePath,
+			inlineJsStartLine,
+		);
 	}
 
 	if (blockStack.length > 0) {

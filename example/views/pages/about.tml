@@ -22,6 +22,14 @@
         @end
 
         <h2>Ekip</h2>
+        <%
+          const roles = team.reduce((acc, member) => {
+            if (!acc.includes(member.role)) acc.push(member.role);
+            return acc;
+          }, []);
+          const teamCount = team.length;
+        %>
+        <p>Toplam <strong>{{ teamCount }}</strong> kisi, <strong>{{ roles.length }}</strong> farkli rol.</p>
         <div class="team-grid">
           @each(member of team)
             @component(components/card, { title: member.name })
@@ -29,6 +37,20 @@
             @end
           @end
         </div>
+
+        <h2>Ekip Tablosu</h2>
+        <table class="team-table">
+          <thead><tr><th>#</th><th>Isim</th><th>Rol</th></tr></thead>
+          <tbody>
+            <% for (const [index, member] of team.entries()) { %>
+              <tr>
+                <td>{{ index + 1 }}</td>
+                <td>{{ member.name }}</td>
+                <td>{{ member.role }}</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
       </section>
     </main>
   @end
@@ -41,4 +63,7 @@
   .about-content { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
   .about-content h2 { margin-top: 1rem; }
   .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+  .team-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  .team-table th, .team-table td { padding: 0.5rem 1rem; border: 1px solid #ddd; text-align: left; }
+  .team-table thead { background: #f5f5f5; }
 </style>
